@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { MouseEvent } from "react";
 import { Copy, Check } from "lucide-react";
-import { Button, ButtonProps } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface CopyButtonProps extends ButtonProps {
