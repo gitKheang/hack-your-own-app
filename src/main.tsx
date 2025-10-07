@@ -1,0 +1,29 @@
+import { createRoot } from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+import { AppProviders } from "./app/providers/AppProviders.tsx";
+import { env } from "./lib/env";
+
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error("Root element '#root' not found.");
+}
+
+const renderApp = () => {
+  createRoot(rootElement).render(
+    <AppProviders>
+      <App />
+    </AppProviders>,
+  );
+};
+
+const bootstrap = async () => {
+  if (env.useMocks) {
+    const { startMockWorker } = await import("./mocks/browser");
+    await startMockWorker();
+  }
+  renderApp();
+};
+
+bootstrap();
