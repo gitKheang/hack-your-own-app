@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,7 @@ import { toast } from "@/components/ui/sonner";
 import { Activity, AlertTriangle, Shield, Sparkles, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getScanDefaults } from "@/api/scans.defaults";
+import { listDomains, type DomainSummary } from "@/api/domains";
 import type { ScanDefaults } from "@/types/settings";
 
 const scanSchema = z
@@ -83,12 +84,41 @@ const NewScan = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedDomain = searchParams.get("domain");
+  const preselectedDomainName = searchParams.get("domainName");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultsQuery = useQuery({
     queryKey: ["settings", "scans"],
     queryFn: getScanDefaults,
   });
+
+  const domainsQuery = useQuery({
+    queryKey: ["domains"],
+    queryFn: listDomains,
+  });
+
+  const domainOptions = useMemo(() => {
+    const source: Array<Pick<DomainSummary, "id" | "domain_name" | "isVerified">> =
+      domainsQuery.data && domainsQuery.data.length
+        ? domainsQuery.data
+        : DOMAIN_OPTIONS;
+
+    const verified = source.filter((domain) => domain.isVerified);
+    const options = verified.map((domain) => ({
+      id: domain.id,
+      domain_name: domain.domain_name,
+    }));
+
+    if (
+      preselectedDomain &&
+      preselectedDomainName &&
+      !options.some((option) => option.id === preselectedDomain)
+    ) {
+      options.unshift({ id: preselectedDomain, domain_name: preselectedDomainName });
+    }
+
+    return options;
+  }, [domainsQuery.data, preselectedDomain, preselectedDomainName]);
 
   const form = useForm<ScanForm>({
     resolver: zodResolver(scanSchema),
@@ -115,6 +145,12 @@ const NewScan = () => {
       form.reset(mapDefaultsToForm(defaultsQuery.data, currentValues));
     }
   }, [defaultsQuery.data, form]);
+
+  useEffect(() => {
+    if (!preselectedDomain && domainOptions.length > 0 && !form.getValues("domain_id")) {
+      form.setValue("domain_id", domainOptions[0].id, { shouldDirty: false });
+    }
+  }, [preselectedDomain, domainOptions, form]);
 
   const onSubmit = async (data: ScanForm) => {
     setIsSubmitting(true);
@@ -169,21 +205,39 @@ const NewScan = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Domain</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={domainsQuery.isLoading || domainOptions.length === 0}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a verified domain" />
+                          <SelectValue
+                            placeholder={
+                              domainsQuery.isLoading
+                                ? "Loading domains…"
+                                : domainOptions.length
+                                  ? "Select a verified domain"
+                                  : "No verified domains available"
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {DOMAIN_OPTIONS.map((domain) => (
+                        {domainOptions.map((domain) => (
                           <SelectItem key={domain.id} value={domain.id}>
                             {domain.domain_name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Choose a domain that you&apos;ve verified ownership of.</FormDescription>
+                    <FormDescription>
+                      {domainsQuery.isLoading
+                        ? "Fetching available domains…"
+                        : domainOptions.length
+                          ? "Choose a domain that you\'ve verified ownership of."
+                          : "Add and verify a domain before starting a scan."}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

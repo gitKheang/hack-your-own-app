@@ -356,9 +356,13 @@ const DomainsList = () => {
                           <Link to={`/app/domains/${domain.id}`}>View Details</Link>
                         </DropdownMenuItem>
                         {domain.isVerified && (
-                          <DropdownMenuItem asChild>
-                            <Link to={`/app/scans/new?domain=${domain.id}`}>New Scan</Link>
-                          </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                          >
+                            New Scan
+                          </Link>
+                        </DropdownMenuItem>
                         )}
                         {!domain.isVerified && (
                           <DropdownMenuItem
@@ -407,7 +411,9 @@ const DomainsList = () => {
                             </Link>
                           </Button>
                           <Button size="sm" asChild>
-                            <Link to={`/app/scans/new?domain=${domain.id}`}>
+                            <Link
+                              to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                            >
                               <Activity className="mr-2 h-4 w-4" />
                               New Scan
                             </Link>

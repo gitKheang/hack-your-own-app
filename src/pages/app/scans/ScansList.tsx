@@ -142,7 +142,11 @@ const ScansList = () => {
                     <Link to={`/app/scans/${scan.id}`}>View details</Link>
                   </Button>
                   <Button asChild>
-                    <Link to={`/app/scans/new?domain=${scan.domain_id}`}>Run again</Link>
+                    <Link
+                      to={`/app/scans/new?domain=${encodeURIComponent(scan.domain_id)}&domainName=${encodeURIComponent(scan.domainName)}`}
+                    >
+                      Run again
+                    </Link>
                   </Button>
                 </div>
               </CardContent>

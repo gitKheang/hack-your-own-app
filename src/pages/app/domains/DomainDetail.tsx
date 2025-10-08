@@ -265,7 +265,9 @@ const DomainDetail = () => {
               )}
             </Button>
             <Button variant="default" asChild disabled={!domain}>
-              <Link to={`/app/scans/new?domain=${domain?.id ?? ""}`}>
+              <Link
+                to={`/app/scans/new?domain=${encodeURIComponent(domain?.id ?? "")}&domainName=${encodeURIComponent(domain?.domain_name ?? "")}`}
+              >
                 <Activity className="mr-2 h-4 w-4" />
                 New scan
               </Link>
