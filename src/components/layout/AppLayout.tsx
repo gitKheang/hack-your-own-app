@@ -17,10 +17,10 @@ export const AppLayout = () => {
   const isActive = (href: string) => location.pathname.startsWith(href);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Header />
 
-      <div className="flex min-h-[calc(100vh-4rem)] items-start">
+      <div className="flex flex-1">
         {/* Sidebar */}
         <aside className="hidden md:flex w-64 flex-col border-r bg-card/50 sticky top-16 h-[calc(100vh-4rem)]">
           <div className="flex-1 overflow-y-auto py-6">
@@ -56,8 +56,8 @@ export const AppLayout = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto h-[calc(100vh-4rem)]">
-          <div className="container mx-auto px-4 py-8">
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-4 pb-24 pt-8 md:pb-8">
             <Outlet />
           </div>
         </main>

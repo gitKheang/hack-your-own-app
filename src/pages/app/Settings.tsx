@@ -26,7 +26,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
-import { RadioGroup } from "@/components/ui/radio-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1187,29 +1188,31 @@ const ScanDefaultsTab = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Evidence verbosity</FormLabel>
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="grid gap-3 sm:grid-cols-3">
-                    <FormItem
-                      className={cn("cursor-pointer rounded-lg border p-4 text-sm", field.value === "minimal" && "border-primary")}
-                      onClick={() => field.onChange("minimal")}
-                    >
-                      <FormLabel className="text-base">Minimal</FormLabel>
-                      <FormDescription>Only essential repro steps.</FormDescription>
-                    </FormItem>
-                    <FormItem
-                      className={cn("cursor-pointer rounded-lg border p-4 text-sm", field.value === "normal" && "border-primary")}
-                      onClick={() => field.onChange("normal")}
-                    >
-                      <FormLabel className="text-base">Normal</FormLabel>
-                      <FormDescription>Balanced detail for engineers.</FormDescription>
-                    </FormItem>
-                    <FormItem
-                      className={cn("cursor-pointer rounded-lg border p-4 text-sm", field.value === "verbose" && "border-primary")}
-                      onClick={() => field.onChange("verbose")}
-                    >
-                      <FormLabel className="text-base">Verbose</FormLabel>
-                      <FormDescription>Full request/response dumps.</FormDescription>
-                    </FormItem>
-                  </RadioGroup>
+                  <FormControl>
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid gap-3 sm:grid-cols-3">
+                      {(
+                        [
+                          { value: "minimal", title: "Minimal", description: "Only essential repro steps." },
+                          { value: "normal", title: "Normal", description: "Balanced detail for engineers." },
+                          { value: "verbose", title: "Verbose", description: "Full request/response dumps." },
+                        ] as const
+                      ).map((option) => (
+                        <Label
+                          key={option.value}
+                          className={cn(
+                            "relative flex h-full cursor-pointer flex-col rounded-lg border border-muted p-4 text-left text-sm transition-colors",
+                            "hover:border-primary/50 hover:bg-primary/5",
+                            "focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 focus-within:ring-offset-background",
+                            "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
+                          )}
+                        >
+                          <RadioGroupItem value={option.value} className="peer sr-only" />
+                          <span className="text-base font-semibold text-foreground">{option.title}</span>
+                          <span className="mt-2 text-xs text-muted-foreground">{option.description}</span>
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  </FormControl>
                 </FormItem>
               )}
             />

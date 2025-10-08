@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   DOMAIN_VERIFY_HELP_TEXT,
   DOMAIN_VERIFY_HOST,
@@ -134,6 +135,16 @@ export const AddDomainModal = ({
                 </div>
 
                 <p className="text-sm text-muted-foreground">{DOMAIN_VERIFY_HELP_TEXT}</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto px-0 text-sm"
+                  asChild
+                >
+                  <Link to="/help/domain-verification" target="_blank" rel="noreferrer">
+                    Learn more
+                  </Link>
+                </Button>
 
                 {errorMessage && (
                   <Alert variant="destructive">

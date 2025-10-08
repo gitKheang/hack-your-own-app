@@ -16,6 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Activity, AlertTriangle, Shield, Sparkles, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -324,22 +325,19 @@ const NewScan = () => {
                             { value: "verbose", title: "Verbose", description: "Full request and response payloads." },
                           ] as const
                         ).map((option) => (
-                          <FormItem
+                          <Label
                             key={option.value}
                             className={cn(
-                              "cursor-pointer rounded-lg border p-4",
-                              field.value === option.value && "border-primary",
+                              "relative flex h-full cursor-pointer flex-col rounded-lg border border-muted p-4 text-left text-sm transition-colors",
+                              "hover:border-primary/50 hover:bg-primary/5",
+                              "focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 focus-within:ring-offset-background",
+                              "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
                             )}
-                            onClick={() => field.onChange(option.value)}
                           >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value={option.value} className="mt-0.5" />
-                              <div>
-                                <FormLabel className="text-base">{option.title}</FormLabel>
-                                <FormDescription className="text-xs">{option.description}</FormDescription>
-                              </div>
-                            </div>
-                          </FormItem>
+                            <RadioGroupItem value={option.value} className="peer sr-only" />
+                            <span className="text-base font-semibold text-foreground">{option.title}</span>
+                            <span className="mt-2 text-xs text-muted-foreground">{option.description}</span>
+                          </Label>
                         ))}
                       </RadioGroup>
                     </FormControl>

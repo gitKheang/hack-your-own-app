@@ -1,5 +1,11 @@
 import { ApiError } from "@/api/client";
-import { listDomainsMock, verifyDomainMock } from "../domains-mock-api";
+import {
+  getDomainMock,
+  listDomainsMock,
+  removeDomainMock,
+  updateDomainMock,
+  verifyDomainMock,
+} from "../domains-mock-api";
 
 const API_BASE = "/api";
 
@@ -19,6 +25,28 @@ export const createDomainHandlers = ({
     await randomDelay(delay);
     const domains = await listDomainsMock();
     return HttpResponse.json(domains);
+  }),
+  http.get(`${API_BASE}/domains/:domainId`, async ({ params }: { params: { domainId?: string } }) => {
+    await randomDelay(delay);
+    const domainId = params?.domainId ?? "";
+
+    try {
+      const domain = await getDomainMock(domainId);
+      return HttpResponse.json(domain);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const message =
+          typeof error.data === "object" && error.data && "message" in error.data
+            ? (error.data as { message?: string }).message ?? error.message
+            : error.message;
+        return HttpResponse.json({ message }, { status: error.status });
+      }
+
+      return HttpResponse.json(
+        { message: "Unable to load domain." },
+        { status: 500 },
+      );
+    }
   }),
   http.post(`${API_BASE}/domains/verify`, async ({ request }: { request: Request }) => {
     await randomDelay(delay);
@@ -42,6 +70,51 @@ export const createDomainHandlers = ({
         { message: "Verification failed. Please try again." },
         { status: 500 },
       );
+    }
+  }),
+  http.patch(
+    `${API_BASE}/domains/:domainId`,
+    async ({ params, request }: { params: { domainId?: string }; request: Request }) => {
+      await randomDelay(delay);
+      const domainId = params?.domainId ?? "";
+      const body = (await request.json()) as { domain?: string };
+
+      try {
+        const domain = await updateDomainMock({
+          id: domainId,
+          domain: body?.domain ?? "",
+        });
+        return HttpResponse.json(domain);
+      } catch (error) {
+        if (error instanceof ApiError) {
+          const message =
+            typeof error.data === "object" && error.data && "message" in error.data
+              ? (error.data as { message?: string }).message ?? error.message
+              : error.message;
+          return HttpResponse.json({ message }, { status: error.status });
+        }
+
+        return HttpResponse.json({ message: "Unable to update domain." }, { status: 500 });
+      }
+    },
+  ),
+  http.delete(`${API_BASE}/domains/:domainId`, async ({ params }: { params: { domainId?: string } }) => {
+    await randomDelay(delay);
+    const domainId = params?.domainId ?? "";
+
+    try {
+      await removeDomainMock(domainId);
+      return HttpResponse.json(null, { status: 204 });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const message =
+          typeof error.data === "object" && error.data && "message" in error.data
+            ? (error.data as { message?: string }).message ?? error.message
+            : error.message;
+        return HttpResponse.json({ message }, { status: error.status });
+      }
+
+      return HttpResponse.json({ message: "Unable to remove domain." }, { status: 500 });
     }
   }),
 ];

@@ -24,21 +24,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { listDomains, verifyDomain, type DomainSummary } from "@/api/domains";
+import { listDomains, verifyDomain, removeDomain, type DomainSummary } from "@/api/domains";
 import { ApiError } from "@/api/client";
 import { AddDomainModal } from "@/features/domains/components/AddDomainModal";
 import { DOMAIN_VERIFY_TOKEN } from "@/features/domains/constants";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const DomainsList = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const modalParam = searchParams.get("modal");
+  const domainPrefillParam = searchParams.get("domain");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<"domain" | "dns">("domain");
   const [domainInput, setDomainInput] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [domainToRemove, setDomainToRemove] = useState<DomainSummary | null>(null);
 
   const domainsQuery = useQuery({
     queryKey: ["domains"],
@@ -75,6 +87,29 @@ const DomainsList = () => {
     },
   });
 
+  const {
+    mutate: runRemoveDomain,
+    isPending: isRemovingDomain,
+  } = useMutation({
+    mutationFn: (domainId: string) => removeDomain(domainId),
+    onSuccess: (_, domainId) => {
+      queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) =>
+        current.filter((domain) => domain.id !== domainId),
+      );
+      toast.success("Domain removed");
+      setDomainToRemove(null);
+    },
+    onError: (error) => {
+      const message =
+        error instanceof ApiError && error.data && typeof error.data === "object" && "message" in error.data
+          ? (error.data as { message?: string }).message ?? error.message
+          : error instanceof Error
+            ? error.message
+            : "Unable to remove domain. Please try again.";
+      toast.error(message);
+    },
+  });
+
   const isLoadingDomains = domainsQuery.isLoading;
   const loadError =
     domainsQuery.isError && domainsQuery.error instanceof Error
@@ -101,13 +136,15 @@ const DomainsList = () => {
 
   useEffect(() => {
     if (modalParam === "add" && !isModalOpen) {
-      resetModalState();
+      const prefillDomain = domainPrefillParam ?? undefined;
+      const initialStep: "domain" | "dns" = prefillDomain ? "dns" : "domain";
+      resetModalState(prefillDomain, initialStep);
       setIsModalOpen(true);
     } else if (modalParam !== "add" && isModalOpen) {
       setIsModalOpen(false);
       resetModalState();
     }
-  }, [modalParam, isModalOpen, resetModalState]);
+  }, [modalParam, domainPrefillParam, isModalOpen, resetModalState]);
 
   function openModal(prefillDomain?: string) {
     const nextStep: "domain" | "dns" = prefillDomain ? "dns" : "domain";
@@ -116,8 +153,13 @@ const DomainsList = () => {
     const params = Object.fromEntries(searchParams.entries());
     if (params.modal !== "add") {
       params.modal = "add";
-      setSearchParams(params, { replace: true });
     }
+    if (prefillDomain) {
+      params.domain = prefillDomain;
+    } else {
+      delete params.domain;
+    }
+    setSearchParams(params, { replace: true });
   }
 
   function closeModal() {
@@ -126,6 +168,7 @@ const DomainsList = () => {
     if (searchParams.get("modal")) {
       const params = Object.fromEntries(searchParams.entries());
       delete params.modal;
+      delete params.domain;
       setSearchParams(params, { replace: true });
     }
   }
@@ -179,6 +222,13 @@ const DomainsList = () => {
     } catch {
       toast.error("Unable to copy. Please copy manually.");
     }
+  };
+
+  const handleConfirmRemove = () => {
+    if (!domainToRemove) {
+      return;
+    }
+    runRemoveDomain(domainToRemove.id);
   };
 
   return (
@@ -321,7 +371,13 @@ const DomainsList = () => {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            setDomainToRemove(domain);
+                          }}
+                        >
                           Remove Domain
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -411,6 +467,36 @@ const DomainsList = () => {
         onCopyToken={handleCopyValue}
         onBackToDomain={handleBackToDomainStep}
       />
+
+      <AlertDialog
+        open={domainToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open && !isRemovingDomain) {
+            setDomainToRemove(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove domain?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {domainToRemove
+                ? `Removing ${domainToRemove.domain_name} will clear its verification status and scans from this list.`
+                : "Removing this domain will clear its verification status and scans from this list."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemovingDomain}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemove}
+              disabled={isRemovingDomain}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isRemovingDomain ? "Removing…" : "Remove domain"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

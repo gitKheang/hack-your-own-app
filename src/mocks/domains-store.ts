@@ -63,6 +63,9 @@ export const findDomainByName = (domainName: string) =>
     (domain) => domain.domain_name.toLowerCase() === domainName.toLowerCase().trim(),
   );
 
+export const findDomainById = (domainId: string) =>
+  domainsStore.records.find((domain) => domain.id === domainId);
+
 export const upsertDomain = (domain: DomainRecord) => {
   const existingIndex = domainsStore.records.findIndex((item) => item.id === domain.id);
 
@@ -94,4 +97,31 @@ export const verifyDomainRecord = (domainName: string) => {
   });
   domainsStore.records.unshift(verified);
   return verified;
+};
+
+export const updateDomainRecord = (
+  domainId: string,
+  updates: { domain_name?: string },
+) => {
+  const existing = findDomainById(domainId);
+  if (!existing) {
+    return null;
+  }
+
+  if (typeof updates.domain_name === "string") {
+    existing.domain_name = updates.domain_name;
+    existing.isVerified = false;
+    existing.verified_at = undefined;
+  }
+
+  return existing;
+};
+
+export const removeDomainRecord = (domainId: string) => {
+  const index = domainsStore.records.findIndex((domain) => domain.id === domainId);
+  if (index >= 0) {
+    domainsStore.records.splice(index, 1);
+    return true;
+  }
+  return false;
 };
