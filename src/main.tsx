@@ -11,6 +11,12 @@ if (!rootElement) {
 }
 
 const renderApp = () => {
+  const pendingRedirect = sessionStorage.getItem("spa-redirect");
+  if (pendingRedirect) {
+    sessionStorage.removeItem("spa-redirect");
+    window.history.replaceState(null, "", pendingRedirect);
+  }
+
   createRoot(rootElement).render(
     <AppProviders>
       <App />
