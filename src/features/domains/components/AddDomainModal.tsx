@@ -18,11 +18,14 @@ interface AddDomainModalProps {
   acknowledged: boolean;
   errorMessage: string | null;
   isSubmitting: boolean;
+  step: "domain" | "dns";
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onDomainSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onDomainChange: (value: string) => void;
   onAcknowledgedChange: (value: boolean) => void;
   onCopyToken: () => Promise<void> | void;
+  onBackToDomain: () => void;
 }
 
 export const AddDomainModal = ({
@@ -31,15 +34,21 @@ export const AddDomainModal = ({
   acknowledged,
   errorMessage,
   isSubmitting,
+  step,
   onClose,
   onSubmit,
+  onDomainSubmit,
   onDomainChange,
   onAcknowledgedChange,
   onCopyToken,
+  onBackToDomain,
 }: AddDomainModalProps) => {
   if (!isOpen) {
     return null;
   }
+
+  const isDnsStep = step === "dns";
+  const domainLabel = domain.trim() || domain;
 
   return (
     <div
@@ -48,92 +57,140 @@ export const AddDomainModal = ({
       aria-modal="true"
     >
       <Card className="relative z-10 w-full max-w-lg shadow-2xl">
-        <form onSubmit={onSubmit}>
+        <form onSubmit={isDnsStep ? onSubmit : onDomainSubmit}>
           <CardHeader>
-            <CardTitle>Add Domain</CardTitle>
-            <CardDescription>
-              Provide the domain you would like to verify and follow the DNS instructions.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>{isDnsStep ? "Verify Domain" : "Add Domain"}</CardTitle>
+                <CardDescription>
+                  {isDnsStep
+                    ? "Create the DNS TXT record so we can verify ownership."
+                    : "Provide the domain you would like to verify."}
+                </CardDescription>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Step {isDnsStep ? "2" : "1"} of 2
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="domain-name">Domain</Label>
-              <Input
-                id="domain-name"
-                placeholder="example.com"
-                value={domain}
-                onChange={(event) => onDomainChange(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
-              <div>
-                <h4 className="text-sm font-semibold">Generate TXT record</h4>
-                <p className="text-xs text-muted-foreground">Use these values to create a DNS TXT record.</p>
-              </div>
-
-              <div className="grid gap-3">
-                <div className="grid gap-1">
-                  <Label>Type</Label>
-                  <Input value={DOMAIN_VERIFY_TYPE} readOnly />
+            {!isDnsStep && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="domain-name">Domain</Label>
+                  <Input
+                    id="domain-name"
+                    placeholder="example.com"
+                    value={domain}
+                    onChange={(event) => onDomainChange(event.target.value)}
+                    autoFocus
+                  />
                 </div>
-                <div className="grid gap-1">
-                  <Label>Name / Host</Label>
-                  <Input value={DOMAIN_VERIFY_HOST} readOnly />
+                <p className="text-sm text-muted-foreground">
+                  We will guide you through verifying ownership after you save the domain.
+                </p>
+              </>
+            )}
+
+            {isDnsStep && (
+              <>
+                <div className="space-y-1 text-sm">
+                  <Label>Domain</Label>
+                  <p className="rounded-md border bg-muted/40 px-3 py-2 font-medium">{domainLabel}</p>
                 </div>
-                <div className="grid gap-1">
-                  <Label>Value</Label>
-                  <div className="flex gap-2">
-                    <Input value={DOMAIN_VERIFY_TOKEN} readOnly className="font-mono" />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        void onCopyToken();
-                      }}
-                      className="shrink-0"
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy
-                    </Button>
+                <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+                  <div>
+                    <h4 className="text-sm font-semibold">Generate TXT record</h4>
+                    <p className="text-xs text-muted-foreground">Use these values to create a DNS TXT record.</p>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div className="grid gap-1">
+                      <Label>Type</Label>
+                      <Input value={DOMAIN_VERIFY_TYPE} readOnly />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label>Name / Host</Label>
+                      <Input value={DOMAIN_VERIFY_HOST} readOnly />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label>Value</Label>
+                      <div className="flex gap-2">
+                        <Input value={DOMAIN_VERIFY_TOKEN} readOnly className="font-mono" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            void onCopyToken();
+                          }}
+                          className="shrink-0"
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <p className="text-sm text-muted-foreground">{DOMAIN_VERIFY_HELP_TEXT}</p>
+                <p className="text-sm text-muted-foreground">{DOMAIN_VERIFY_HELP_TEXT}</p>
 
-            {errorMessage && (
+                {errorMessage && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Verification failed</AlertTitle>
+                    <AlertDescription>{errorMessage}</AlertDescription>
+                  </Alert>
+                )}
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border border-input bg-background"
+                    checked={acknowledged}
+                    onChange={(event) => onAcknowledgedChange(event.target.checked)}
+                  />
+                  I added this TXT record
+                </label>
+              </>
+            )}
+
+            {!isDnsStep && errorMessage && (
               <Alert variant="destructive">
-                <AlertTitle>Verification failed</AlertTitle>
+                <AlertTitle>Unable to continue</AlertTitle>
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
             )}
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border border-input bg-background"
-                checked={acknowledged}
-                onChange={(event) => onAcknowledgedChange(event.target.checked)}
-              />
-              I added this TXT record
-            </label>
           </CardContent>
           <CardFooter className="justify-end gap-2 border-t pt-6">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!acknowledged || isSubmitting || !domain.trim().length}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying…
-                </>
-              ) : (
-                "Verify domain"
-              )}
-            </Button>
+            {isDnsStep ? (
+              <>
+                <Button type="button" variant="ghost" onClick={onBackToDomain}>
+                  Back
+                </Button>
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={!acknowledged || isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying…
+                    </>
+                  ) : (
+                    "Verify domain"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={!domain.trim().length}>
+                  Save & Continue
+                </Button>
+              </>
+            )}
           </CardFooter>
         </form>
       </Card>

@@ -35,6 +35,7 @@ const DomainsList = () => {
   const modalParam = searchParams.get("modal");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalStep, setModalStep] = useState<"domain" | "dns">("domain");
   const [domainInput, setDomainInput] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -87,12 +88,16 @@ const DomainsList = () => {
   const verifiedCount = domains.filter((domain) => domain.isVerified).length;
   const pendingCount = totalDomains - verifiedCount;
 
-  const resetModalState = useCallback((prefillDomain?: string) => {
-    setDomainInput(prefillDomain ?? "");
-    setAcknowledged(false);
-    setErrorMessage(null);
-    resetVerifyDomain();
-  }, [resetVerifyDomain]);
+  const resetModalState = useCallback(
+    (prefillDomain?: string, initialStep: "domain" | "dns" = "domain") => {
+      setDomainInput(prefillDomain ?? "");
+      setAcknowledged(false);
+      setErrorMessage(null);
+      resetVerifyDomain();
+      setModalStep(initialStep);
+    },
+    [resetVerifyDomain, setModalStep],
+  );
 
   useEffect(() => {
     if (modalParam === "add" && !isModalOpen) {
@@ -105,7 +110,8 @@ const DomainsList = () => {
   }, [modalParam, isModalOpen, resetModalState]);
 
   function openModal(prefillDomain?: string) {
-    resetModalState(prefillDomain);
+    const nextStep: "domain" | "dns" = prefillDomain ? "dns" : "domain";
+    resetModalState(prefillDomain, nextStep);
     setIsModalOpen(true);
     const params = Object.fromEntries(searchParams.entries());
     if (params.modal !== "add") {
@@ -133,6 +139,37 @@ const DomainsList = () => {
     }
     setErrorMessage(null);
     runVerifyDomain({ domain: value, token: DOMAIN_VERIFY_TOKEN });
+  };
+
+  const handleDomainContinue = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = domainInput.trim();
+    if (!value) {
+      setErrorMessage("Please enter a domain.");
+      return;
+    }
+
+    const normalized = value.toLowerCase();
+    const existing = domains.find(
+      (domain) => domain.domain_name.toLowerCase() === normalized,
+    );
+
+    if (existing?.isVerified) {
+      setErrorMessage("This domain is already verified.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setAcknowledged(false);
+    resetVerifyDomain();
+    setModalStep("dns");
+  };
+
+  const handleBackToDomainStep = () => {
+    setModalStep("domain");
+    setAcknowledged(false);
+    setErrorMessage(null);
+    resetVerifyDomain();
   };
 
   const handleCopyValue = async () => {
@@ -360,8 +397,10 @@ const DomainsList = () => {
         acknowledged={acknowledged}
         errorMessage={errorMessage}
         isSubmitting={isVerifyingDomain}
+        step={modalStep}
         onClose={closeModal}
         onSubmit={handleVerifyDomain}
+        onDomainSubmit={handleDomainContinue}
         onDomainChange={(value) => {
           setDomainInput(value);
           if (errorMessage) {
@@ -370,6 +409,7 @@ const DomainsList = () => {
         }}
         onAcknowledgedChange={(value) => setAcknowledged(value)}
         onCopyToken={handleCopyValue}
+        onBackToDomain={handleBackToDomainStep}
       />
     </div>
   );
