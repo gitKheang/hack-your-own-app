@@ -1,10 +1,19 @@
 import { Header } from "./Header";
 import { Shield, LayoutDashboard, Globe, Activity, User, Settings } from "lucide-react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 export const AppLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const hasSession = typeof window !== "undefined" && localStorage.getItem("hyow_session");
+    if (!hasSession) {
+      navigate("/auth/login", { replace: true, state: { redirect: location.pathname } });
+    }
+  }, [location.pathname, navigate]);
 
   const navigation = [
     { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },

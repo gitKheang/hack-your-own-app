@@ -94,7 +94,6 @@ const createInitialStore = (): SettingsStore => ({
     id: "usr_123",
     first_name: "Alex",
     last_name: "Johnson",
-    display_name: "Alex J.",
     email: "alex@example.com",
     email_verified: true,
     timezone: detectTimezone(),
@@ -104,7 +103,6 @@ const createInitialStore = (): SettingsStore => ({
   general: {
     landing: "dashboard",
     openInNewTab: false,
-    confirmations: true,
     autosave: false,
   },
   security: {
@@ -136,10 +134,7 @@ const createInitialStore = (): SettingsStore => ({
       openRedirect: true,
       headers: true,
     },
-    timeout: 60,
-    evidence: "normal",
     autoOpenReport: true,
-    ai: true,
   },
   privacy: {
     retentionDays: 30,

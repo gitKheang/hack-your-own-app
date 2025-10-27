@@ -10,24 +10,18 @@ import {
   Plus,
   CheckCircle2,
   XCircle,
-  Clock,
-  MoreVertical,
   Activity,
   Settings as SettingsIcon,
+  Trash2,
+  RefreshCcw,
+  Loader2,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { listDomains, verifyDomain, removeDomain, type DomainSummary } from "@/api/domains";
 import { ApiError } from "@/api/client";
 import { AddDomainModal } from "@/features/domains/components/AddDomainModal";
-import { DOMAIN_VERIFY_TOKEN } from "@/features/domains/constants";
+import { DOMAIN_NAME_REGEX, DOMAIN_VERIFY_TOKEN } from "@/features/domains/constants";
+import { removeScansForDomain } from "@/api/scans";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DomainsList = () => {
+  const INVALID_DOMAIN_MESSAGE = "Enter a valid domain (e.g., example.com).";
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const modalParam = searchParams.get("modal");
@@ -91,22 +86,27 @@ const DomainsList = () => {
     mutate: runRemoveDomain,
     isPending: isRemovingDomain,
   } = useMutation({
-    mutationFn: (domainId: string) => removeDomain(domainId),
-    onSuccess: (_, domainId) => {
+    mutationFn: async ({ domainId }: { domainId: string; domainName: string }) => {
+      await removeScansForDomain(domainId);
+      await removeDomain(domainId);
+      return domainId;
+    },
+    onSuccess: (_, { domainId, domainName }) => {
       queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) =>
         current.filter((domain) => domain.id !== domainId),
       );
-      toast.success("Domain removed");
+      void queryClient.invalidateQueries({ queryKey: ["scans"] });
+      toast.success(`${domainName} and related scans removed`);
       setDomainToRemove(null);
     },
-    onError: (error) => {
+    onError: (error, { domainName }) => {
       const message =
         error instanceof ApiError && error.data && typeof error.data === "object" && "message" in error.data
           ? (error.data as { message?: string }).message ?? error.message
           : error instanceof Error
             ? error.message
             : "Unable to remove domain. Please try again.";
-      toast.error(message);
+      toast.error(message || `Unable to remove ${domainName}. Please try again.`);
     },
   });
 
@@ -180,8 +180,14 @@ const DomainsList = () => {
       setErrorMessage("Please enter a domain.");
       return;
     }
+    const normalized = value.toLowerCase();
+    if (!DOMAIN_NAME_REGEX.test(normalized)) {
+      setErrorMessage(INVALID_DOMAIN_MESSAGE);
+      return;
+    }
+    setDomainInput(normalized);
     setErrorMessage(null);
-    runVerifyDomain({ domain: value, token: DOMAIN_VERIFY_TOKEN });
+    runVerifyDomain({ domain: normalized, token: DOMAIN_VERIFY_TOKEN });
   };
 
   const handleDomainContinue = (event: React.FormEvent<HTMLFormElement>) => {
@@ -193,6 +199,11 @@ const DomainsList = () => {
     }
 
     const normalized = value.toLowerCase();
+    if (!DOMAIN_NAME_REGEX.test(normalized)) {
+      setErrorMessage(INVALID_DOMAIN_MESSAGE);
+      return;
+    }
+
     const existing = domains.find(
       (domain) => domain.domain_name.toLowerCase() === normalized,
     );
@@ -202,6 +213,7 @@ const DomainsList = () => {
       return;
     }
 
+    setDomainInput(normalized);
     setErrorMessage(null);
     setAcknowledged(false);
     resetVerifyDomain();
@@ -228,7 +240,10 @@ const DomainsList = () => {
     if (!domainToRemove) {
       return;
     }
-    runRemoveDomain(domainToRemove.id);
+    runRemoveDomain({
+      domainId: domainToRemove.id,
+      domainName: domainToRemove.domain_name,
+    });
   };
 
   return (
@@ -240,10 +255,30 @@ const DomainsList = () => {
             Manage your verified domains for security testing
           </p>
         </div>
-        <Button type="button" onClick={() => openModal()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add new domain
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => domainsQuery.refetch()}
+            disabled={domainsQuery.isFetching}
+          >
+            {domainsQuery.isFetching ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Refreshing
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Refresh
+              </>
+            )}
+          </Button>
+          <Button type="button" onClick={() => openModal()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add new domain
+          </Button>
+        </div>
       </div>
 
       {loadError && (
@@ -329,9 +364,9 @@ const DomainsList = () => {
                             Verified
                           </Badge>
                         ) : (
-                          <Badge variant="pending">
-                            <Clock className="mr-1 h-3 w-3" />
-                            Pending
+                          <Badge variant="failed">
+                            <XCircle className="mr-1 h-3 w-3" />
+                            Unverified
                           </Badge>
                         )}
                       </div>
@@ -343,49 +378,15 @@ const DomainsList = () => {
                       </CardDescription>
                     </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link to={`/app/domains/${domain.id}`}>View Details</Link>
-                        </DropdownMenuItem>
-                        {domain.isVerified && (
-                        <DropdownMenuItem asChild>
-                          <Link
-                            to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
-                          >
-                            New Scan
-                          </Link>
-                        </DropdownMenuItem>
-                        )}
-                        {!domain.isVerified && (
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              openModal(domain.domain_name);
-                            }}
-                          >
-                            Verify Domain
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            setDomainToRemove(domain);
-                          }}
-                        >
-                          Remove Domain
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDomainToRemove(domain)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardHeader>
 
@@ -484,11 +485,11 @@ const DomainsList = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove domain?</AlertDialogTitle>
+            <AlertDialogTitle>Remove domain and scans?</AlertDialogTitle>
             <AlertDialogDescription>
               {domainToRemove
-                ? `Removing ${domainToRemove.domain_name} will clear its verification status and scans from this list.`
-                : "Removing this domain will clear its verification status and scans from this list."}
+                ? `Removing ${domainToRemove.domain_name} will delete all associated scan history and verification data. This action cannot be undone.`
+                : "Removing this domain will delete all associated scan history and verification data. This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

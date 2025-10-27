@@ -15,6 +15,7 @@ import Profile from "@/pages/app/Profile";
 import Settings from "@/pages/app/Settings";
 import { AppLayout } from "@/components/layout/AppLayout";
 import DomainVerificationGuide from "@/pages/help/DomainVerificationGuide";
+import PassiveScan from "@/pages/passive/PassiveScan";
 
 export const appRouter = createBrowserRouter([
   {
@@ -35,6 +36,10 @@ export const appRouter = createBrowserRouter([
     path: "/help",
     element: <Outlet />,
     children: [{ path: "domain-verification", element: <DomainVerificationGuide /> }],
+  },
+  {
+    path: "/scan",
+    element: <PassiveScan />,
   },
   {
     path: "/app",

@@ -6,6 +6,7 @@ import {
 } from "../store";
 import { createDomainHandlers } from "./domains";
 import { createProfileHandlers } from "./profile";
+import { createScanHandlers } from "./scans";
 import { createSettingsHandlers } from "../settings";
 
 export const createHandlers = (msw: typeof import("msw")) => {
@@ -26,6 +27,7 @@ export const createHandlers = (msw: typeof import("msw")) => {
       },
     }),
     ...createSettingsHandlers(shared),
+    ...createScanHandlers(shared),
     ...createDomainHandlers(shared),
   ];
 };

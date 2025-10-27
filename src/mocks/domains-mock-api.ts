@@ -7,6 +7,7 @@ import {
   removeDomainRecord,
   verifyDomainRecord,
 } from "./domains-store";
+import { removeScansForDomain } from "./scans-store";
 import { DOMAIN_VERIFY_TOKEN } from "@/features/domains/constants";
 
 export const listDomainsMock = async () => domainsStore.records;
@@ -89,5 +90,6 @@ export const removeDomainMock = async (id: string) => {
   if (!removed) {
     throw new ApiError("Domain not found.", 404, { message: "Domain not found." });
   }
+  removeScansForDomain(id);
   return { success: true };
 };

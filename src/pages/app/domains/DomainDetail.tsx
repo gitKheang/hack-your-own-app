@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/sonner";
 import { getDomain, updateDomain, verifyDomain, type DomainSummary } from "@/api/domains";
 import { ApiError } from "@/api/client";
-import { Copy, Loader2, PenSquare, RefreshCw, ArrowLeft, Edit3, Activity } from "lucide-react";
+import { Copy, Loader2, PenSquare, RefreshCw, ArrowLeft, Activity } from "lucide-react";
 import {
   DOMAIN_VERIFY_HELP_TEXT,
   DOMAIN_VERIFY_HOST,
@@ -179,7 +179,7 @@ const DomainDetail = () => {
     }
     return domain.isVerified
       ? { label: "Verified", variant: "completed" as const }
-      : { label: "Pending verification", variant: "pending" as const };
+      : { label: "Verification failed", variant: "failed" as const };
   }, [domain]);
 
   if (!domainId) {
@@ -391,33 +391,6 @@ const DomainDetail = () => {
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {domain && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-            <CardDescription>Shortcuts that keep ownership checks up to date.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={handleRefreshStatus} disabled={verifyMutation.isPending}>
-              <RefreshCw className={cn("mr-2 h-4 w-4", verifyMutation.isPending && "animate-spin")} />
-              Check verification now
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={`/app/domains?modal=add&domain=${encodeURIComponent(domain.domain_name)}`}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                Re-run guided flow
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to={`/app/scans?domain=${domain.id}`}>
-                <Activity className="mr-2 h-4 w-4" />
-                View scan history
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
       )}
 
       <EditDomainDialog

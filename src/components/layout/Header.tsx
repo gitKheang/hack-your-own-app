@@ -26,12 +26,9 @@ export const Header = () => {
       return isAppRoute && profileQuery.isFetching ? "Loading..." : "Guest";
     }
 
-    return (
-      profile.display_name?.trim() ||
-      [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
-      profile.email ||
-      "User"
-    );
+    const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
+
+    return fullName || profile.email || "User";
   }, [profile, profileQuery.isFetching, isAppRoute]);
 
   const initials = useMemo(() => {

@@ -2,7 +2,6 @@ export interface ProfileResponse {
   id: string;
   first_name: string;
   last_name: string;
-  display_name: string;
   email: string;
   email_verified: boolean;
   timezone: string;
@@ -28,7 +27,6 @@ export interface ChangePasswordRequest {
 export interface GeneralSettings {
   landing: "dashboard" | "domains" | "scans";
   openInNewTab: boolean;
-  confirmations: boolean;
   autosave: boolean;
 }
 
@@ -64,10 +62,7 @@ export interface ScanDefaults {
     openRedirect: boolean;
     headers: boolean;
   };
-  timeout: number;
-  evidence: "minimal" | "normal" | "verbose";
   autoOpenReport: boolean;
-  ai: boolean;
 }
 
 export interface ApiToken {

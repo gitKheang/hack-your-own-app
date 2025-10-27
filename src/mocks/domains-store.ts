@@ -17,13 +17,13 @@ const nowIso = () => new Date().toISOString();
 
 const createDomainRecord = (
   domainName: string,
-  options: { verified?: boolean; scanCount?: number; lastScan?: string } = {},
+  options: { id?: string; verified?: boolean; scanCount?: number; lastScan?: string } = {},
 ): DomainRecord => {
-  const { verified = false, scanCount = 0, lastScan } = options;
+  const { id, verified = false, scanCount = 0, lastScan } = options;
   const timestamp = nowIso();
 
   return {
-    id: uid(),
+    id: id ?? uid(),
     user_id: "usr_123",
     domain_name: domainName,
     isVerified: verified,
@@ -37,16 +37,19 @@ const createDomainRecord = (
 
 const createInitialDomains = (): DomainRecord[] => [
   createDomainRecord("example.com", {
+    id: "dom_1",
     verified: true,
     scanCount: 5,
     lastScan: nowIso(),
   }),
   createDomainRecord("test.dev", {
+    id: "dom_2",
     verified: true,
     scanCount: 3,
     lastScan: nowIso(),
   }),
   createDomainRecord("staging.myapp.io", {
+    id: "dom_3",
     verified: false,
     scanCount: 0,
   }),

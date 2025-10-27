@@ -1,6 +1,6 @@
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Search, FileText, Zap, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -25,18 +25,73 @@ const Index = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              A beginner-friendly web vulnerability scanner that helps you test websites for common security flaws. 
-              Educational, powerful, and easy to use.
+              A beginner-friendly web vulnerability scanner that lets you run quick passive checks or deep active scans—whichever fits your workflow.
             </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Button asChild size="lg" className="text-lg">
-                <Link to="/auth/register">Get Started Free</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="text-lg">
-                <Link to="/auth/login">Sign In</Link>
-              </Button>
-            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Scan Options */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center space-y-4 mb-10">
+            <h2 className="text-3xl font-bold">Choose your scan</h2>
+            <p className="text-muted-foreground">
+              Passive scans run instantly without an account. Active scans unlock the full testing suite once you sign up.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center justify-center gap-6 md:flex-row">
+            <Card className="w-full max-w-md border border-primary/15 bg-card/80 shadow-lg shadow-primary/5 backdrop-blur">
+              <CardHeader className="space-y-3">
+                <CardTitle className="text-2xl font-semibold">Passive scan</CardTitle>
+                <CardDescription>
+                  Launch instant checks for redirects and security headers—perfect for quick, permission-free reviews.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                  <p>Non-intrusive inspections that are safe to run on public or third-party sites.</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                  <p>Results render right in your browser—no accounts, tokens, or setup needed.</p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild size="lg" className="w-full">
+                  <Link to="/scan">Start passive scan</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="w-full max-w-md border border-border/40 bg-card/70 shadow-lg shadow-foreground/5 backdrop-blur">
+              <CardHeader className="space-y-3">
+                <CardTitle className="text-2xl font-semibold">Active scan</CardTitle>
+                <CardDescription>
+                  Sign in to unlock SQLi and XSS testing, scheduled scans, and collaborative reporting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-foreground/70" />
+                  <p>Manage verified domains, track history, and coordinate remediation in one workspace.</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-foreground/70" />
+                  <p>Schedule recurring scans and download reports tailored for engineering teams.</p>
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg" className="flex-1">
+                  <Link to="/auth/register">Create account</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="flex-1">
+                  <Link to="/auth/login">Sign in</Link>
+                </Button>
+              </CardFooter>
+            </Card>
           </div>
         </div>
       </section>

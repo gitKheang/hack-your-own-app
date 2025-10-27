@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Globe, Activity, Plus, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Shield, Globe, Activity, Plus, TrendingUp, CheckCircle2, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/domain/StatusBadge";
 
@@ -43,7 +43,7 @@ const Dashboard = () => {
             Overview of your security scanning activity
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild>
             <Link to="/app/domains?modal=add">
               <Plus className="h-4 w-4 mr-2" />
@@ -53,7 +53,13 @@ const Dashboard = () => {
           <Button asChild variant="outline">
             <Link to="/app/scans/new">
               <Activity className="h-4 w-4 mr-2" />
-              New Scan
+              New Active Scan
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/scan">
+              <Shield className="h-4 w-4 mr-2" />
+              Quick Passive Scan
             </Link>
           </Button>
         </div>

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as z from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,47 +11,25 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
-import { Activity, AlertTriangle, Shield, Sparkles, Timer } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Activity, AlertTriangle, Shield } from "lucide-react";
 import { getScanDefaults } from "@/api/scans.defaults";
 import { listDomains, type DomainSummary } from "@/api/domains";
+import { createScan } from "@/api/scans";
+import { ApiError } from "@/api/client";
 import type { ScanDefaults } from "@/types/settings";
 
 const scanSchema = z
   .object({
     domain_id: z.string().min(1, "Select a domain"),
     target_url: z.string().url("Enter a valid URL"),
-    checks: z
-      .object({
-        sqli: z.boolean().default(true),
-        xss: z.boolean().default(true),
-        openRedirect: z.boolean().default(true),
-        headers: z.boolean().default(true),
-      })
-      .superRefine((data, ctx) => {
-        if (!Object.values(data).some(Boolean)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Select at least one security check" });
-        }
-      }),
-    timeout: z.number().min(10).max(120),
-    evidence: z.enum(["minimal", "normal", "verbose"]),
     autoOpenReport: z.boolean(),
-    ai: z.boolean(),
     authorization: z.boolean().refine((val) => val === true, {
       message: "You must confirm authorization to scan this target",
     }),
-  })
-  .transform((value) => ({
-    ...value,
-    timeout: Math.round(value.timeout),
-  }));
+  });
 
 type ScanForm = z.infer<typeof scanSchema>;
 
@@ -67,16 +45,7 @@ const mapDefaultsToForm = (defaults: ScanDefaults | undefined, current: ScanForm
 
   return {
     ...current,
-    checks: {
-      sqli: defaults.scope.sqli,
-      xss: defaults.scope.xss,
-      openRedirect: defaults.scope.openRedirect,
-      headers: defaults.scope.headers,
-    },
-    timeout: defaults.timeout,
-    evidence: defaults.evidence,
     autoOpenReport: defaults.autoOpenReport,
-    ai: defaults.ai,
   };
 };
 
@@ -85,7 +54,6 @@ const NewScan = () => {
   const [searchParams] = useSearchParams();
   const preselectedDomain = searchParams.get("domain");
   const preselectedDomainName = searchParams.get("domainName");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultsQuery = useQuery({
     queryKey: ["settings", "scans"],
@@ -98,7 +66,7 @@ const NewScan = () => {
   });
 
   const domainOptions = useMemo(() => {
-    const source: Array<Pick<DomainSummary, "id" | "domain_name" | "isVerified">> =
+    const source: Pick<DomainSummary, "id" | "domain_name" | "isVerified">[] =
       domainsQuery.data && domainsQuery.data.length
         ? domainsQuery.data
         : DOMAIN_OPTIONS;
@@ -120,24 +88,15 @@ const NewScan = () => {
     return options;
   }, [domainsQuery.data, preselectedDomain, preselectedDomainName]);
 
-  const form = useForm<ScanForm>({
-    resolver: zodResolver(scanSchema),
-    defaultValues: {
-      domain_id: preselectedDomain || "",
-      target_url: "",
-      checks: {
-        sqli: true,
-        xss: true,
-        openRedirect: true,
-        headers: true,
-      },
-      timeout: 60,
-      evidence: "normal",
-      autoOpenReport: true,
-      ai: true,
-      authorization: false,
-    },
-  });
+const form = useForm<ScanForm>({
+  resolver: zodResolver(scanSchema),
+  defaultValues: {
+    domain_id: preselectedDomain || "",
+    target_url: "",
+    autoOpenReport: true,
+    authorization: false,
+  },
+});
 
   useEffect(() => {
     if (defaultsQuery.data) {
@@ -152,25 +111,47 @@ const NewScan = () => {
     }
   }, [preselectedDomain, domainOptions, form]);
 
-  const onSubmit = async (data: ScanForm) => {
-    setIsSubmitting(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      const taskId = `task_${Math.random().toString(36).slice(2, 9)}`;
+  const queryClient = useQueryClient();
+
+  const createScanMutation = useMutation({
+    mutationFn: createScan,
+    onSuccess: (scan) => {
+      void queryClient.invalidateQueries({ queryKey: ["scans"] });
       toast.success("Scan initiated successfully");
-      navigate(`/app/scans/${taskId}`);
-    } catch (error) {
-      toast.error("Failed to start scan. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      navigate(`/app/scans/${scan.id}`);
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof ApiError && error.data && typeof error.data === "object" && "message" in error.data
+          ? (error.data as { message?: string }).message ?? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to start scan. Please try again.";
+      toast.error(message);
+    },
+  });
+
+  const onSubmit = (data: ScanForm) => {
+    createScanMutation.mutate({
+      domain_id: data.domain_id,
+      target_url: data.target_url,
+      scope: {
+        sqli: true,
+        xss: true,
+        openRedirect: true,
+        headers: true,
+      },
+      autoOpenReport: data.autoOpenReport,
+    });
   };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">New Security Scan</h1>
-        <p className="mt-1 text-muted-foreground">Configure and run a vulnerability scan on your verified domain.</p>
+      <div className="space-y-3">
+        <h1 className="text-3xl font-bold tracking-tight">New Active Scan</h1>
+        <p className="text-muted-foreground">
+          Configure an authenticated scan of your verified domain.
+        </p>
       </div>
 
       <Alert>
@@ -194,7 +175,7 @@ const NewScan = () => {
       <Card>
         <CardHeader>
           <CardTitle>Scan configuration</CardTitle>
-          <CardDescription>Target selection, coverage, and runtime preferences.</CardDescription>
+          <CardDescription>Target selection and scan preferences.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -232,11 +213,19 @@ const NewScan = () => {
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      {domainsQuery.isLoading
-                        ? "Fetching available domains…"
-                        : domainOptions.length
-                          ? "Choose a domain that you\'ve verified ownership of."
-                          : "Add and verify a domain before starting a scan."}
+                      {domainsQuery.isLoading ? (
+                        "Fetching available domains…"
+                      ) : domainOptions.length ? (
+                        "Choose a domain that you've verified ownership of."
+                      ) : (
+                        <>
+                          Add and verify a domain before starting a scan. Manage domains from the{" "}
+                          <Link to="/app/domains" className="text-primary underline-offset-2 hover:underline">
+                            Domains page
+                          </Link>
+                          .
+                        </>
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -258,144 +247,33 @@ const NewScan = () => {
                 )}
               />
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <FormLabel>Security checks</FormLabel>
-                  {defaultsQuery.isLoading ? <Skeleton className="h-4 w-16" /> : <Badge variant="secondary">Prefilled from settings</Badge>}
-                </div>
-                <div className="space-y-3 rounded-lg border p-4">
-                  {(
-                    [
-                      { key: "sqli", title: "SQL injection", description: "Test parameters and forms for SQL injection" },
-                      { key: "xss", title: "Cross-site scripting", description: "Identify reflected XSS vulnerabilities" },
-                      { key: "openRedirect", title: "Open redirect", description: "Detect open redirect weaknesses" },
-                      { key: "headers", title: "Security headers", description: "Check for missing or risky headers" },
-                    ] as const
-                  ).map((item) => (
-                    <FormField
-                      key={item.key}
-                      control={form.control}
-                      name={`checks.${item.key}` as const}
-                      render={({ field }) => (
-                        <FormItem className="flex items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <div className="space-y-0.5">
-                            <FormLabel className="font-medium capitalize">{item.title}</FormLabel>
-                            <FormDescription className="text-xs">{item.description}</FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4 rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    <Timer className="h-4 w-4 text-muted-foreground" />
-                    <FormLabel className="mb-0">Timeout per check</FormLabel>
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="timeout"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <div className="space-y-3">
-                            <Slider
-                              min={10}
-                              max={120}
-                              step={5}
-                              value={[field.value]}
-                              onValueChange={([value]) => field.onChange(value)}
-                            />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>10s</span>
-                              <span className="font-medium text-foreground">{field.value}s</span>
-                              <span>120s</span>
-                            </div>
-                          </div>
-                        </FormControl>
-                        <FormDescription>Extend for slower or high-latency targets.</FormDescription>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4 rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    <FormLabel className="mb-0">AI assistants</FormLabel>
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="ai"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-lg border bg-muted/60 p-3">
-                        <div>
-                          <FormLabel className="text-sm">Enable AI remediation suggestions</FormLabel>
-                          <FormDescription className="text-xs">Adds guided fixes after each finding.</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="autoOpenReport"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between rounded-lg border bg-muted/60 p-3">
-                        <div>
-                          <FormLabel className="text-sm">Auto-open report when scans finish</FormLabel>
-                          <FormDescription className="text-xs">Jump straight into findings after completion.</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+              <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                <FormLabel className="text-base">Security checks</FormLabel>
+                <p className="mt-2">
+                  Active scans always include the full suite of assessments:
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  <li>SQL injection detection</li>
+                  <li>Cross-site scripting</li>
+                  <li>Open redirect safety</li>
+                  <li>HTTP security header review</li>
+                </ul>
               </div>
 
               <FormField
                 control={form.control}
-                name="evidence"
+                name="autoOpenReport"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Evidence verbosity</FormLabel>
-                    <FormDescription>Control the level of detail captured for each finding.</FormDescription>
+                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <FormLabel className="text-base">Auto-open report when scans finish</FormLabel>
+                      <FormDescription className="text-xs">
+                        Jump straight into findings after completion.
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <RadioGroup onValueChange={field.onChange} value={field.value} className="grid gap-3 md:grid-cols-3">
-                        {(
-                          [
-                            { value: "minimal", title: "Minimal", description: "Essential repro steps only." },
-                            { value: "normal", title: "Normal", description: "Balanced detail for engineers." },
-                            { value: "verbose", title: "Verbose", description: "Full request and response payloads." },
-                          ] as const
-                        ).map((option) => (
-                          <Label
-                            key={option.value}
-                            className={cn(
-                              "relative flex h-full cursor-pointer flex-col rounded-lg border border-muted p-4 text-left text-sm transition-colors",
-                              "hover:border-primary/50 hover:bg-primary/5",
-                              "focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 focus-within:ring-offset-background",
-                              "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
-                            )}
-                          >
-                            <RadioGroupItem value={option.value} className="peer sr-only" />
-                            <span className="text-base font-semibold text-foreground">{option.title}</span>
-                            <span className="mt-2 text-xs text-muted-foreground">{option.description}</span>
-                          </Label>
-                        ))}
-                      </RadioGroup>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -430,8 +308,8 @@ const NewScan = () => {
               />
 
               <div className="flex gap-4">
-                <Button type="submit" disabled={isSubmitting} className="flex-1">
-                  {isSubmitting ? (
+                <Button type="submit" disabled={createScanMutation.isPending} className="flex-1">
+                  {createScanMutation.isPending ? (
                     <>
                       <Activity className="mr-2 h-4 w-4 animate-spin" />
                       Starting scan...

@@ -7,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Copy, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
+  DOMAIN_NAME_PATTERN,
+  DOMAIN_NAME_REGEX,
   DOMAIN_VERIFY_HELP_TEXT,
   DOMAIN_VERIFY_HOST,
   DOMAIN_VERIFY_TOKEN,
@@ -50,6 +52,8 @@ export const AddDomainModal = ({
 
   const isDnsStep = step === "dns";
   const domainLabel = domain.trim() || domain;
+  const normalizedDomain = domain.trim().toLowerCase();
+  const isDomainValid = DOMAIN_NAME_REGEX.test(normalizedDomain);
 
   return (
     <div
@@ -84,11 +88,16 @@ export const AddDomainModal = ({
                     placeholder="example.com"
                     value={domain}
                     onChange={(event) => onDomainChange(event.target.value)}
+                    pattern={DOMAIN_NAME_PATTERN}
+                    title="Enter a valid domain (e.g., example.com)"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     autoFocus
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We will guide you through verifying ownership after you save the domain.
+                  We will guide you through verifying ownership after you save the domain. Use a fully qualified domain like security.example.com or example.com.
                 </p>
               </>
             )}
@@ -197,7 +206,7 @@ export const AddDomainModal = ({
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={!domain.trim().length}>
+                <Button type="submit" disabled={!domain.trim().length || !isDomainValid}>
                   Save & Continue
                 </Button>
               </>

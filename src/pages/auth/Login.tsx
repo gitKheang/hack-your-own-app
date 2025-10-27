@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,6 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginForm>({
@@ -38,9 +39,15 @@ const Login = () => {
     try {
       // TODO: Replace with actual API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("hyow_session", JSON.stringify({ email: data.email, createdAt: Date.now() }));
+      }
+
       toast.success("Login successful!");
-      navigate("/app/dashboard");
+      const redirectTo =
+        (location.state as { redirect?: string } | null)?.redirect ?? "/app/dashboard";
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast.error("Invalid credentials. Please try again.");
     } finally {
