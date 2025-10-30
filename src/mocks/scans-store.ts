@@ -122,8 +122,8 @@ const createInitialScans = (): ScanRecord[] => [
       target_url: "https://example.com",
       target_status: "COMPLETED",
       summary: "Full surface scan with no critical issues detected.",
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 23).toISOString(),
       lastRun: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     },
     {
@@ -133,13 +133,28 @@ const createInitialScans = (): ScanRecord[] => [
   createScanRecord(
     {
       id: "scan_2",
-      domain_id: "dom_2",
-      domainName: "staging.myapp.io",
-      target_url: "https://staging.myapp.io",
+      domain_id: "dom_1",
+      domainName: "example.com",
+      target_url: "https://example.com/login",
+      target_status: "COMPLETED",
+      summary: "Authentication journey scan flagged elevated response times on login.",
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 11).toISOString(),
+    },
+    {
+      scope: { headers: false, xss: true, sqli: true, openRedirect: false },
+    },
+  ),
+  createScanRecord(
+    {
+      id: "scan_3",
+      domain_id: "dom_1",
+      domainName: "example.com",
+      target_url: "https://example.com/billing",
       target_status: "RUNNING",
-      summary: "OWASP Top 10 scan in progress.",
-      created_at: new Date(Date.now() - 1000 * 30).toISOString(),
-      progress: 35,
+      summary: "Checkout workflow scan in progress.",
+      created_at: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+      progress: 45,
     },
     {
       scope: { headers: true, xss: true, sqli: true, openRedirect: true },
@@ -147,17 +162,62 @@ const createInitialScans = (): ScanRecord[] => [
   ),
   createScanRecord(
     {
-      id: "scan_3",
-      domain_id: "dom_3",
+      id: "scan_4",
+      domain_id: "dom_2",
       domainName: "test.dev",
-      target_url: "https://test.dev/login",
-      target_status: "FAILED",
-      summary: "Scan aborted after repeated timeouts. Needs review.",
-      created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+      target_url: "https://test.dev",
+      target_status: "COMPLETED",
+      summary: "Baseline scan highlighted missing security headers.",
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
+      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 35).toISOString(),
+      lastRun: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     },
     {
-      scope: { headers: true, xss: false, sqli: true, openRedirect: false },
+      scope: { headers: true, xss: true, sqli: false, openRedirect: true },
+    },
+  ),
+  createScanRecord(
+    {
+      id: "scan_5",
+      domain_id: "dom_2",
+      domainName: "test.dev",
+      target_url: "https://test.dev/api",
+      target_status: "FAILED",
+      summary: "API surface scan ended after authentication timeouts. Needs review.",
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+      completed_at: new Date(Date.now() - 1000 * 60 * 60 * 4.5).toISOString(),
+    },
+    {
+      scope: { headers: false, xss: false, sqli: true, openRedirect: false },
+    },
+  ),
+  createScanRecord(
+    {
+      id: "scan_6",
+      domain_id: "dom_3",
+      domainName: "staging.myapp.io",
+      target_url: "https://staging.myapp.io",
+      target_status: "RUNNING",
+      summary: "Staging smoke test running against latest release.",
+      created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+      progress: 30,
+    },
+    {
+      scope: { headers: true, xss: true, sqli: true, openRedirect: true },
+    },
+  ),
+  createScanRecord(
+    {
+      id: "scan_7",
+      domain_id: "dom_3",
+      domainName: "staging.myapp.io",
+      target_url: "https://staging.myapp.io/admin",
+      target_status: "PENDING",
+      summary: "Queued admin portal scan awaiting resources.",
+      created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    },
+    {
+      scope: { headers: true, xss: true, sqli: true, openRedirect: true },
     },
   ),
 ];

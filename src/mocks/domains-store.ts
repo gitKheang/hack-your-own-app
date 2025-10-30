@@ -1,4 +1,4 @@
-import type { Domain } from "@/types";
+import type { Domain, DomainVerificationStatus } from "@/types";
 
 export type DomainRecord = Domain & {
   scanCount: number;
@@ -17,41 +17,51 @@ const nowIso = () => new Date().toISOString();
 
 const createDomainRecord = (
   domainName: string,
-  options: { id?: string; verified?: boolean; scanCount?: number; lastScan?: string } = {},
+  options: {
+    id?: string;
+    status?: DomainVerificationStatus;
+    scanCount?: number;
+    lastScan?: string;
+    error?: string | null;
+  } = {},
 ): DomainRecord => {
-  const { id, verified = false, scanCount = 0, lastScan } = options;
+  const { id, status, scanCount = 0, lastScan, error = null } = options;
   const timestamp = nowIso();
+  const resolvedStatus: DomainVerificationStatus = status ?? "pending";
+  const isVerified = resolvedStatus === "verified";
 
   return {
     id: id ?? uid(),
     user_id: "usr_123",
     domain_name: domainName,
-    isVerified: verified,
+    isVerified,
     verification_token: "HYOW-VERIFY-PLACEHOLDER-XXXXXX",
     created_at: timestamp,
-    verified_at: verified ? timestamp : undefined,
+    verified_at: isVerified ? timestamp : undefined,
     scanCount,
     lastScan,
+    verification_status: resolvedStatus,
+    verification_error: error,
   };
 };
 
 const createInitialDomains = (): DomainRecord[] => [
   createDomainRecord("example.com", {
     id: "dom_1",
-    verified: true,
-    scanCount: 5,
+    status: "verified",
+    scanCount: 3,
     lastScan: nowIso(),
   }),
   createDomainRecord("test.dev", {
     id: "dom_2",
-    verified: true,
-    scanCount: 3,
+    status: "verified",
+    scanCount: 2,
     lastScan: nowIso(),
   }),
   createDomainRecord("staging.myapp.io", {
     id: "dom_3",
-    verified: false,
-    scanCount: 0,
+    status: "pending",
+    scanCount: 2,
   }),
 ];
 
@@ -88,18 +98,33 @@ export const verifyDomainRecord = (domainName: string) => {
 
   if (existing) {
     const timestamp = nowIso();
-    existing.isVerified = true;
-    existing.verified_at = timestamp;
-    existing.scanCount = existing.scanCount ?? 0;
+    if (existing.isVerified) {
+      existing.verification_status = "verified";
+      existing.verification_error = null;
+      existing.verified_at = existing.verified_at ?? timestamp;
+      return existing;
+    }
+
+    if (existing.verification_status === "pending") {
+      existing.isVerified = true;
+      existing.verification_status = "verified";
+      existing.verification_error = null;
+      existing.verified_at = timestamp;
+      existing.scanCount = existing.scanCount ?? 0;
+      return existing;
+    }
+
+    existing.verification_status = "pending";
+    existing.verification_error = null;
     return existing;
   }
 
-  const verified = createDomainRecord(domainName, {
-    verified: true,
+  const pending = createDomainRecord(domainName, {
+    status: "pending",
     scanCount: 0,
   });
-  domainsStore.records.unshift(verified);
-  return verified;
+  domainsStore.records.unshift(pending);
+  return pending;
 };
 
 export const updateDomainRecord = (
@@ -115,6 +140,8 @@ export const updateDomainRecord = (
     existing.domain_name = updates.domain_name;
     existing.isVerified = false;
     existing.verified_at = undefined;
+    existing.verification_status = "pending";
+    existing.verification_error = null;
   }
 
   return existing;

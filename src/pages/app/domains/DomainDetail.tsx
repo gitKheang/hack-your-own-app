@@ -27,7 +27,7 @@ import {
   DOMAIN_VERIFY_TOKEN,
   DOMAIN_VERIFY_TYPE,
 } from "@/features/domains/constants";
-import { cn } from "@/lib/utils";
+import { normalizeDomainStatus, deriveDomainStatus } from "@/features/domains/utils";
 
 const formatDate = (value?: string) => {
   if (!value) {
@@ -76,7 +76,8 @@ const DomainDetail = () => {
     retry: 1,
   });
 
-  const domain = domainQuery.data;
+  const domain = domainQuery.data ? normalizeDomainStatus(domainQuery.data) : undefined;
+  const domainStatus = domain ? deriveDomainStatus(domain) : null;
 
   useEffect(() => {
     if (isEditOpen && domain) {
@@ -88,18 +89,20 @@ const DomainDetail = () => {
     }
   }, [isEditOpen, domain]);
 
-  const updateDomainMutation = useMutation({
+  const updateDomainMutation = useMutation<DomainSummary, unknown, string>({
     mutationFn: (domainName: string) => updateDomain({ id: domainId, domain: domainName }),
     onSuccess: (updatedDomain) => {
-      queryClient.setQueryData<DomainSummary | undefined>(["domain", domainId], updatedDomain);
+      const normalized = normalizeDomainStatus(updatedDomain);
+
+      queryClient.setQueryData<DomainSummary | undefined>(["domain", domainId], normalized);
       queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) => {
-        const existingIndex = current.findIndex((item) => item.id === updatedDomain.id);
+        const existingIndex = current.findIndex((item) => item.id === normalized.id);
         if (existingIndex >= 0) {
           const next = [...current];
-          next[existingIndex] = updatedDomain;
+          next[existingIndex] = normalized;
           return next;
         }
-        return [updatedDomain, ...current];
+        return [normalized, ...current];
       });
       toast.success("Domain updated. Re-verify to confirm ownership.");
       setIsEditOpen(false);
@@ -110,17 +113,33 @@ const DomainDetail = () => {
     },
   });
 
-  const verifyMutation = useMutation({
+  const verifyMutation = useMutation<DomainSummary, unknown, string>({
     mutationFn: (domainName: string) => verifyDomain({ domain: domainName, token: DOMAIN_VERIFY_TOKEN }),
     onSuccess: (updatedDomain) => {
-      queryClient.setQueryData<DomainSummary | undefined>(["domain", domainId], updatedDomain);
+      const normalized = normalizeDomainStatus(updatedDomain);
+
+      queryClient.setQueryData<DomainSummary | undefined>(["domain", domainId], normalized);
       queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) => {
-        const filtered = current.filter(
-          (existing) => existing.id !== updatedDomain.id && existing.domain_name !== updatedDomain.domain_name,
-        );
-        return [updatedDomain, ...filtered];
+        const existingIndex = current.findIndex((item) => item.id === normalized.id);
+        if (existingIndex >= 0) {
+          const next = [...current];
+          next[existingIndex] = normalized;
+          return next;
+        }
+        return [normalized, ...current];
       });
-      toast.success("Domain verification refreshed.");
+
+      if (normalized.verification_status === "verified") {
+        toast.success(`${normalized.domain_name} verified`);
+      } else if (normalized.verification_status === "pending") {
+        toast.info(
+          `We’re verifying ${normalized.domain_name}. DNS updates can take a few minutes to propagate.`,
+        );
+      } else {
+        toast.error(
+          normalized.verification_error ?? `Verification failed for ${normalized.domain_name}.`,
+        );
+      }
     },
     onError: (error) => {
       const message = getErrorMessage(
@@ -128,6 +147,35 @@ const DomainDetail = () => {
         "We couldn’t verify the domain. Double-check the DNS record and try again.",
       );
       toast.error(message);
+
+      if (!domainId) {
+        return;
+      }
+
+      queryClient.setQueryData<DomainSummary | undefined>(["domain", domainId], (current) => {
+        if (!current) {
+          return current;
+        }
+        return normalizeDomainStatus({
+          ...current,
+          isVerified: false,
+          verification_status: "failed",
+          verification_error: message,
+        });
+      });
+
+      queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) =>
+        current.map((item) =>
+          item.id === domainId
+            ? normalizeDomainStatus({
+                ...item,
+                isVerified: false,
+                verification_status: "failed",
+                verification_error: message,
+              })
+            : item,
+        ),
+      );
     },
   });
 
@@ -145,7 +193,7 @@ const DomainDetail = () => {
       return;
     }
 
-    if (domain.isVerified) {
+    if (domainStatus === "verified") {
       toast.info("Domain is already verified.");
       void domainQuery.refetch();
       return;
@@ -174,13 +222,20 @@ const DomainDetail = () => {
   };
 
   const verificationStatus = useMemo(() => {
-    if (!domain) {
+    if (!domainStatus) {
       return null;
     }
-    return domain.isVerified
-      ? { label: "Verified", variant: "completed" as const }
-      : { label: "Verification failed", variant: "failed" as const };
-  }, [domain]);
+
+    if (domainStatus === "verified") {
+      return { label: "Verified", variant: "completed" as const };
+    }
+
+    if (domainStatus === "pending") {
+      return { label: "Pending verification", variant: "pending" as const };
+    }
+
+    return { label: "Verification failed", variant: "failed" as const };
+  }, [domainStatus]);
 
   if (!domainId) {
     return (
@@ -337,8 +392,28 @@ const DomainDetail = () => {
               </div>
               <div className="grid gap-2">
                 <Label className="text-xs uppercase text-muted-foreground">Verified at</Label>
-                <span>{domain.isVerified ? formatDate(domain.verified_at) : "Not verified yet"}</span>
+                <span>
+                  {domainStatus === "verified"
+                    ? formatDate(domain.verified_at)
+                    : domainStatus === "pending"
+                      ? "Pending verification"
+                      : "Verification failed"}
+                </span>
               </div>
+              {domainStatus === "failed" && domain.verification_error && (
+                <Alert variant="destructive">
+                  <AlertTitle>Verification failed</AlertTitle>
+                  <AlertDescription className="text-sm">
+                    {domain.verification_error}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {domainStatus === "pending" && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>DNS verification in progress. Refresh once your TXT record propagates.</span>
+                </div>
+              )}
               <Separator />
               <div className="grid gap-2">
                 <Label className="text-xs uppercase text-muted-foreground">Total scans</Label>

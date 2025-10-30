@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Loader2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DOMAIN_NAME_PATTERN,
@@ -63,20 +63,30 @@ export const AddDomainModal = ({
     >
       <Card className="relative z-10 w-full max-w-lg shadow-2xl">
         <form onSubmit={isDnsStep ? onSubmit : onDomainSubmit}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+          <CardHeader className="space-y-0">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={onClose}
+                  aria-label={isDnsStep ? "Close verify domain" : "Close add domain"}
+                  className="h-8 w-8 rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
                 <CardTitle>{isDnsStep ? "Verify Domain" : "Add Domain"}</CardTitle>
-                <CardDescription>
-                  {isDnsStep
-                    ? "Create the DNS TXT record so we can verify ownership."
-                    : "Provide the domain you would like to verify."}
-                </CardDescription>
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Step {isDnsStep ? "2" : "1"} of 2
               </div>
             </div>
+            <CardDescription className="mt-3 pl-11">
+              {isDnsStep
+                ? "Create the DNS TXT record so we can verify ownership."
+                : "Provide the domain you would like to verify."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!isDnsStep && (
@@ -144,14 +154,9 @@ export const AddDomainModal = ({
                 </div>
 
                 <p className="text-sm text-muted-foreground">{DOMAIN_VERIFY_HELP_TEXT}</p>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto px-0 text-sm"
-                  asChild
-                >
+                <Button type="button" variant="link" className="h-auto px-0 text-sm" asChild>
                   <Link to="/help/domain-verification" target="_blank" rel="noreferrer">
-                    Learn more
+                    View setup guide
                   </Link>
                 </Button>
 
@@ -187,9 +192,6 @@ export const AddDomainModal = ({
                 <Button type="button" variant="ghost" onClick={onBackToDomain}>
                   Back
                 </Button>
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
                 <Button type="submit" disabled={!acknowledged || isSubmitting}>
                   {isSubmitting ? (
                     <>
@@ -203,9 +205,6 @@ export const AddDomainModal = ({
               </>
             ) : (
               <>
-                <Button type="button" variant="ghost" onClick={onClose}>
-                  Cancel
-                </Button>
                 <Button type="submit" disabled={!domain.trim().length || !isDomainValid}>
                   Save & Continue
                 </Button>

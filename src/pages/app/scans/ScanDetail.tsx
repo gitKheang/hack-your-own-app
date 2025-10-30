@@ -135,7 +135,7 @@ const ScanDetail = () => {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Scan Details</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Scan results</h1>
           <p className="text-muted-foreground font-mono text-sm mt-1">{scan.target_url}</p>
         </div>
         {isCompleted && (

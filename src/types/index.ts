@@ -11,6 +11,8 @@ export interface User {
   created_at: string;
 }
 
+export type DomainVerificationStatus = "pending" | "verified" | "failed";
+
 export interface Domain {
   id: string;
   user_id: string;
@@ -19,6 +21,8 @@ export interface Domain {
   verification_token?: string;
   verified_at?: string;
   created_at: string;
+  verification_status?: DomainVerificationStatus;
+  verification_error?: string | null;
 }
 
 export interface ScanTask {

@@ -17,7 +17,7 @@ export const AppProviders = ({ children }: AppProvidersProps) => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           {children}
-          <SonnerToaster richColors position="top-right" />
+          <SonnerToaster richColors position="bottom-right" />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

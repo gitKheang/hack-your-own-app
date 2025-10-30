@@ -17,10 +17,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { listDomains, verifyDomain, removeDomain, type DomainSummary } from "@/api/domains";
+import { listDomains, verifyDomain, removeDomain, getDomain, type DomainSummary } from "@/api/domains";
 import { ApiError } from "@/api/client";
 import { AddDomainModal } from "@/features/domains/components/AddDomainModal";
 import { DOMAIN_NAME_REGEX, DOMAIN_VERIFY_TOKEN } from "@/features/domains/constants";
+import { normalizeDomainStatus, deriveDomainStatus } from "@/features/domains/utils";
 import { removeScansForDomain } from "@/api/scans";
 import {
   AlertDialog,
@@ -39,6 +40,7 @@ const DomainsList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const modalParam = searchParams.get("modal");
   const domainPrefillParam = searchParams.get("domain");
+  const modalStepParam = searchParams.get("step");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<"domain" | "dns">("domain");
@@ -52,33 +54,109 @@ const DomainsList = () => {
     queryFn: listDomains,
   });
 
+  const upsertDomain = useCallback(
+    (next: DomainSummary) => {
+      const normalized = normalizeDomainStatus(next);
+      queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) => {
+        const index = current.findIndex((item) => item.id === normalized.id);
+
+        if (index === -1) {
+          return [normalized, ...current];
+        }
+
+        const updated = [...current];
+        updated[index] = normalized;
+        return updated;
+      });
+    },
+    [queryClient],
+  );
+
   const {
     mutate: runVerifyDomain,
     reset: resetVerifyDomain,
     isPending: isVerifyingDomain,
-  } = useMutation({
+  } = useMutation<DomainSummary, unknown, { domain: string; token: string }>({
     mutationFn: (payload: { domain: string; token: string }) => verifyDomain(payload),
     onSuccess: (domain) => {
-      queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) => {
-        const filtered = current.filter(
-          (existing) => existing.id !== domain.id && existing.domain_name !== domain.domain_name,
+      const normalized = normalizeDomainStatus(domain);
+      upsertDomain(normalized);
+
+      if (normalized.verification_status === "verified") {
+        toast.success(`${normalized.domain_name} verified`);
+      } else if (normalized.verification_status === "pending") {
+        toast.info(
+          `We’re verifying ${normalized.domain_name}. DNS updates can take a few minutes to propagate.`,
         );
-        return [domain, ...filtered];
-      });
-      toast.success("Domain verified");
+      } else if (normalized.verification_status === "failed") {
+        toast.error(
+          normalized.verification_error ?? `Verification failed for ${normalized.domain_name}.`,
+        );
+      }
       closeModal();
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      let message: string | null = null;
+
       if (error instanceof ApiError && error.data && typeof error.data === "object") {
         const data = error.data as { message?: string };
         if (data?.message) {
-          setErrorMessage(data.message);
-          return;
+          message = data.message;
         }
       }
-      setErrorMessage(
-        error instanceof Error ? error.message : "Verification failed. Please try again.",
-      );
+
+      if (!message) {
+        message = error instanceof Error ? error.message : "Verification failed. Please try again.";
+      }
+
+      setErrorMessage(message);
+
+      if (variables?.domain) {
+        const normalizedDomain = variables.domain.toLowerCase();
+        queryClient.setQueryData<DomainSummary[]>(["domains"], (current = []) =>
+          current.map((existing) =>
+            existing.domain_name.toLowerCase() === normalizedDomain
+              ? normalizeDomainStatus({
+                  ...existing,
+                  isVerified: false,
+                  verification_status: "failed",
+                  verification_error: message,
+                })
+              : existing,
+          ),
+        );
+      }
+    },
+  });
+
+  const {
+    mutate: runRefreshDomain,
+    isPending: isRefreshingDomain,
+    variables: refreshingDomainId,
+  } = useMutation<DomainSummary, unknown, string>({
+    mutationFn: (domainId: string) => getDomain(domainId),
+    onSuccess: (domain) => {
+      const normalized = normalizeDomainStatus(domain);
+      upsertDomain(normalized);
+
+      if (normalized.verification_status === "verified") {
+        toast.success(`${normalized.domain_name} verified`);
+      } else if (normalized.verification_status === "pending") {
+        toast.info(`${normalized.domain_name} is still pending verification.`);
+      } else {
+        toast.error(
+          normalized.verification_error ?? `Verification failed for ${normalized.domain_name}.`,
+        );
+      }
+    },
+    onError: (error) => {
+      const message =
+        error instanceof ApiError && error.data && typeof error.data === "object" && "message" in error.data
+          ? (error.data as { message?: string }).message ?? error.message
+          : error instanceof Error
+            ? error.message
+            : "Unable to refresh status. Please try again.";
+      toast.error(message);
     },
   });
 
@@ -118,10 +196,11 @@ const DomainsList = () => {
         ? "Unable to load domains."
         : null;
 
-  const domains = domainsQuery.data ?? [];
+  const rawDomains = domainsQuery.data ?? [];
+  const domains = rawDomains.map(normalizeDomainStatus);
   const totalDomains = domains.length;
-  const verifiedCount = domains.filter((domain) => domain.isVerified).length;
-  const pendingCount = totalDomains - verifiedCount;
+  const verifiedCount = domains.filter((domain) => domain.verification_status === "verified").length;
+  const pendingCount = domains.filter((domain) => domain.verification_status === "pending").length;
 
   const resetModalState = useCallback(
     (prefillDomain?: string, initialStep: "domain" | "dns" = "domain") => {
@@ -137,27 +216,36 @@ const DomainsList = () => {
   useEffect(() => {
     if (modalParam === "add" && !isModalOpen) {
       const prefillDomain = domainPrefillParam ?? undefined;
-      const initialStep: "domain" | "dns" = prefillDomain ? "dns" : "domain";
+      const initialStep: "domain" | "dns" =
+        modalStepParam === "dns" ? "dns" : prefillDomain ? "dns" : "domain";
       resetModalState(prefillDomain, initialStep);
       setIsModalOpen(true);
     } else if (modalParam !== "add" && isModalOpen) {
       setIsModalOpen(false);
       resetModalState();
     }
-  }, [modalParam, domainPrefillParam, isModalOpen, resetModalState]);
+  }, [modalParam, domainPrefillParam, modalStepParam, isModalOpen, resetModalState]);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      return;
+    }
+
+    const desiredStep: "domain" | "dns" = modalStepParam === "dns" ? "dns" : "domain";
+    setModalStep((current) => (current === desiredStep ? current : desiredStep));
+  }, [isModalOpen, modalStepParam]);
 
   function openModal(prefillDomain?: string) {
     const nextStep: "domain" | "dns" = prefillDomain ? "dns" : "domain";
     resetModalState(prefillDomain, nextStep);
     setIsModalOpen(true);
-    const params = Object.fromEntries(searchParams.entries());
-    if (params.modal !== "add") {
-      params.modal = "add";
-    }
+    const params = new URLSearchParams(searchParams);
+    params.set("modal", "add");
+    params.set("step", nextStep);
     if (prefillDomain) {
-      params.domain = prefillDomain;
+      params.set("domain", prefillDomain);
     } else {
-      delete params.domain;
+      params.delete("domain");
     }
     setSearchParams(params, { replace: true });
   }
@@ -166,9 +254,10 @@ const DomainsList = () => {
     setIsModalOpen(false);
     resetModalState();
     if (searchParams.get("modal")) {
-      const params = Object.fromEntries(searchParams.entries());
-      delete params.modal;
-      delete params.domain;
+      const params = new URLSearchParams(searchParams);
+      params.delete("modal");
+      params.delete("domain");
+      params.delete("step");
       setSearchParams(params, { replace: true });
     }
   }
@@ -186,6 +275,19 @@ const DomainsList = () => {
       return;
     }
     setDomainInput(normalized);
+    const params = new URLSearchParams(searchParams);
+    if (params.get("modal") === "add") {
+      params.set("step", "dns");
+      setSearchParams(params, { replace: true });
+    }
+    const existing = domains.find(
+      (domain) => domain.domain_name.toLowerCase() === normalized,
+    );
+    if (existing?.verification_status === "verified" || existing?.isVerified) {
+      setErrorMessage("This domain already exists and is verified.");
+      return;
+    }
+
     setErrorMessage(null);
     runVerifyDomain({ domain: normalized, token: DOMAIN_VERIFY_TOKEN });
   };
@@ -208,8 +310,12 @@ const DomainsList = () => {
       (domain) => domain.domain_name.toLowerCase() === normalized,
     );
 
-    if (existing?.isVerified) {
-      setErrorMessage("This domain is already verified.");
+    if (existing) {
+      if (existing.verification_status === "verified" || existing.isVerified) {
+        setErrorMessage("This domain already exists and is verified.");
+      } else {
+        setErrorMessage("This domain is already in your list. Open it to finish verification.");
+      }
       return;
     }
 
@@ -218,13 +324,27 @@ const DomainsList = () => {
     setAcknowledged(false);
     resetVerifyDomain();
     setModalStep("dns");
+
+    const params = new URLSearchParams(searchParams);
+    if (params.get("modal") === "add") {
+      params.set("step", "dns");
+      params.set("domain", normalized);
+      setSearchParams(params, { replace: true });
+    }
   };
 
   const handleBackToDomainStep = () => {
-    setModalStep("domain");
     setAcknowledged(false);
     setErrorMessage(null);
     resetVerifyDomain();
+
+    const params = new URLSearchParams(searchParams);
+    params.set("modal", "add");
+    params.set("step", "domain");
+
+    params.delete("domain");
+
+    setSearchParams(params, { replace: true });
   };
 
   const handleCopyValue = async () => {
@@ -255,25 +375,7 @@ const DomainsList = () => {
             Manage your verified domains for security testing
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => domainsQuery.refetch()}
-            disabled={domainsQuery.isFetching}
-          >
-            {domainsQuery.isFetching ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Refreshing
-              </>
-            ) : (
-              <>
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh
-              </>
-            )}
-          </Button>
+        <div>
           <Button type="button" onClick={() => openModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add new domain
@@ -315,7 +417,7 @@ const DomainsList = () => {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending verification</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingDomains ? (
@@ -351,91 +453,144 @@ const DomainsList = () => {
                 </CardContent>
               </Card>
             ))
-          : domains.map((domain) => (
-              <Card key={domain.id} className="transition-shadow hover:shadow-md">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-xl">{domain.domain_name}</CardTitle>
-                        {domain.isVerified ? (
-                          <Badge variant="completed">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Verified
-                          </Badge>
-                        ) : (
-                          <Badge variant="failed">
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Unverified
-                          </Badge>
+          : domains.map((domain) => {
+              const status = deriveDomainStatus(domain);
+              const isPendingStatus = status === "pending";
+              const isFailedStatus = status === "failed";
+              const isVerifiedStatus = status === "verified";
+              const isRefreshingThisDomain =
+                isRefreshingDomain && refreshingDomainId === domain.id;
+
+              return (
+                <Card key={domain.id} className="transition-shadow hover:shadow-md">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-xl">{domain.domain_name}</CardTitle>
+                          {isVerifiedStatus ? (
+                            <Badge variant="completed" className="gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Verified
+                            </Badge>
+                          ) : isFailedStatus ? (
+                            <Badge variant="failed" className="gap-1">
+                              <XCircle className="h-3 w-3" />
+                              Verification failed
+                            </Badge>
+                          ) : (
+                            <Badge variant="pending" className="gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Pending verification
+                            </Badge>
+                          )}
+                        </div>
+                        <CardDescription>
+                          Added {new Date(domain.created_at).toLocaleDateString()}
+                          {isVerifiedStatus && domain.verified_at
+                            ? ` • Verified ${new Date(domain.verified_at).toLocaleDateString()}`
+                            : null}
+                          {isPendingStatus ? " • Verification in progress" : null}
+                          {isFailedStatus ? " • Verification failed" : null}
+                        </CardDescription>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDomainToRemove(domain)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {isFailedStatus && domain.verification_error && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Verification failed</AlertTitle>
+                        <AlertDescription className="text-sm">
+                          {domain.verification_error}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {isPendingStatus && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>DNS verification in progress. Check back after the record propagates.</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Activity className="h-4 w-4" />
+                          <span>{domain.scanCount ?? 0} scans</span>
+                        </div>
+                        {domain.lastScan && (
+                          <div>Last scan: {new Date(domain.lastScan).toLocaleDateString()}</div>
                         )}
                       </div>
-                      <CardDescription>
-                        Added {new Date(domain.created_at).toLocaleDateString()}
-                        {domain.isVerified && domain.verified_at
-                          ? ` • Verified ${new Date(domain.verified_at).toLocaleDateString()}`
-                          : ""}
-                      </CardDescription>
-                    </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => setDomainToRemove(domain)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-6 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Activity className="h-4 w-4" />
-                        <span>{domain.scanCount ?? 0} scans</span>
-                      </div>
-                      {domain.lastScan && (
-                        <div>Last scan: {new Date(domain.lastScan).toLocaleDateString()}</div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      {domain.isVerified ? (
-                        <>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/app/domains/${domain.id}`}>
-                              <SettingsIcon className="mr-2 h-4 w-4" />
-                              Manage
-                            </Link>
-                          </Button>
-                          <Button size="sm" asChild>
-                            <Link
-                              to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {isVerifiedStatus ? (
+                          <>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/app/domains/${domain.id}`}>
+                                <SettingsIcon className="mr-2 h-4 w-4" />
+                                Manage
+                              </Link>
+                            </Button>
+                            <Button size="sm" asChild>
+                              <Link
+                                to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                              >
+                                <Activity className="mr-2 h-4 w-4" />
+                                New Scan
+                              </Link>
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={() => runRefreshDomain(domain.id)}
+                              disabled={isRefreshingThisDomain}
                             >
-                              <Activity className="mr-2 h-4 w-4" />
-                              New Scan
-                            </Link>
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={() => openModal(domain.domain_name)}
-                        >
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Complete Verification
-                        </Button>
-                      )}
+                              {isRefreshingThisDomain ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Refreshing…
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCcw className="mr-2 h-4 w-4" />
+                                  Refresh status
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant={isFailedStatus ? "destructive" : "default"}
+                              onClick={() => openModal(domain.domain_name)}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              {isFailedStatus ? "Fix verification" : "Review instructions"}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
       </div>
 
       {!isLoadingDomains && domains.length === 0 && (

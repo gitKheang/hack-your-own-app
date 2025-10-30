@@ -88,15 +88,41 @@ const NewScan = () => {
     return options;
   }, [domainsQuery.data, preselectedDomain, preselectedDomainName]);
 
-const form = useForm<ScanForm>({
-  resolver: zodResolver(scanSchema),
-  defaultValues: {
-    domain_id: preselectedDomain || "",
-    target_url: "",
-    autoOpenReport: true,
-    authorization: false,
-  },
-});
+  const selectedDomainLabel = useMemo(() => {
+    if (!preselectedDomain) {
+      return null;
+    }
+
+    if (preselectedDomainName) {
+      return preselectedDomainName;
+    }
+
+    const match = domainOptions.find((domain) => domain.id === preselectedDomain);
+    return match?.domain_name ?? preselectedDomain;
+  }, [preselectedDomain, preselectedDomainName, domainOptions]);
+
+  const targetUrlPlaceholder = useMemo(() => {
+    if (!selectedDomainLabel) {
+      return "https://example.com/login";
+    }
+
+    const sanitized = selectedDomainLabel
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+
+    return `https://${sanitized}/login`;
+  }, [selectedDomainLabel]);
+
+  const form = useForm<ScanForm>({
+    resolver: zodResolver(scanSchema),
+    defaultValues: {
+      domain_id: preselectedDomain || "",
+      target_url: "",
+      autoOpenReport: true,
+      authorization: false,
+    },
+  });
 
   useEffect(() => {
     if (defaultsQuery.data) {
@@ -104,6 +130,12 @@ const form = useForm<ScanForm>({
       form.reset(mapDefaultsToForm(defaultsQuery.data, currentValues));
     }
   }, [defaultsQuery.data, form]);
+
+  useEffect(() => {
+    if (preselectedDomain) {
+      form.setValue("domain_id", preselectedDomain, { shouldDirty: false });
+    }
+  }, [preselectedDomain, form]);
 
   useEffect(() => {
     if (!preselectedDomain && domainOptions.length > 0 && !form.getValues("domain_id")) {
@@ -186,47 +218,61 @@ const form = useForm<ScanForm>({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Domain</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={domainsQuery.isLoading || domainOptions.length === 0}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              domainsQuery.isLoading
-                                ? "Loading domains…"
-                                : domainOptions.length
-                                  ? "Select a verified domain"
-                                  : "No verified domains available"
-                            }
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {domainOptions.map((domain) => (
-                          <SelectItem key={domain.id} value={domain.id}>
-                            {domain.domain_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {domainsQuery.isLoading ? (
-                        "Fetching available domains…"
-                      ) : domainOptions.length ? (
-                        "Choose a domain that you've verified ownership of."
-                      ) : (
-                        <>
-                          Add and verify a domain before starting a scan. Manage domains from the{" "}
-                          <Link to="/app/domains" className="text-primary underline-offset-2 hover:underline">
-                            Domains page
-                          </Link>
-                          .
-                        </>
-                      )}
-                    </FormDescription>
+                    {preselectedDomain ? (
+                      <>
+                        <FormControl>
+                          <input type="hidden" {...field} />
+                        </FormControl>
+                        <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+                          {selectedDomainLabel ?? field.value}
+                        </div>
+                        <FormDescription>This scan will run against the selected domain.</FormDescription>
+                      </>
+                    ) : (
+                      <>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={domainsQuery.isLoading || domainOptions.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue
+                                placeholder={
+                                  domainsQuery.isLoading
+                                    ? "Loading domains…"
+                                    : domainOptions.length
+                                      ? "Select a verified domain"
+                                      : "No verified domains available"
+                                }
+                              />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {domainOptions.map((domain) => (
+                              <SelectItem key={domain.id} value={domain.id}>
+                                {domain.domain_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {domainsQuery.isLoading ? (
+                            "Fetching available domains…"
+                          ) : domainOptions.length ? (
+                            "Choose a domain that you've verified ownership of."
+                          ) : (
+                            <>
+                              Add and verify a domain before starting a scan. Manage domains from the{" "}
+                              <Link to="/app/domains" className="text-primary underline-offset-2 hover:underline">
+                                Domains page
+                              </Link>
+                              .
+                            </>
+                          )}
+                        </FormDescription>
+                      </>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -239,7 +285,7 @@ const form = useForm<ScanForm>({
                   <FormItem>
                     <FormLabel>Target URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://example.com/login" {...field} />
+                      <Input placeholder={targetUrlPlaceholder} {...field} />
                     </FormControl>
                     <FormDescription>The specific URL or path to scan within your domain.</FormDescription>
                     <FormMessage />
