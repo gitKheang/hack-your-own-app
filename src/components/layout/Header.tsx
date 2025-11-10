@@ -12,6 +12,7 @@ export const Header = () => {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const location = useLocation();
   const isAppRoute = location.pathname.startsWith("/app");
 
@@ -38,6 +39,13 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setHasSession(Boolean(localStorage.getItem("hyow_session")));
+  }, []);
+
+  useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
@@ -58,18 +66,21 @@ export const Header = () => {
 
   const isRouteActive = (href: string) => location.pathname.startsWith(href);
 
+  const isAuthenticated = hasSession || Boolean(profile);
+  const logoDestination = isAuthenticated ? "/app/dashboard" : "/";
+
   return (
     <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+        <Link to={logoDestination} className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          <Link to="/" className="text-xl font-bold tracking-tight">
-            HYOW
-          </Link>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Hack Your Own Web
-          </span>
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-bold tracking-tight">HYOW</span>
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Hack Your Own Web
+            </span>
+          </div>
+        </Link>
 
         <div className="flex items-center gap-3">
           {!isAppRoute ? (
