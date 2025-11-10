@@ -61,7 +61,7 @@ const Index = () => {
               </CardContent>
               <CardFooter>
                 <Button asChild size="lg" className="w-full">
-                  <Link to="/scan">Start passive scan</Link>
+                  <Link to="/scan?origin=landing">Start passive scan</Link>
                 </Button>
               </CardFooter>
             </Card>
