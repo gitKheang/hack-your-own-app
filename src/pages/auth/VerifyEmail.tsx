@@ -95,7 +95,7 @@ const VerifyEmail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+      <div className="container mx-auto flex items-center justify-center px-4 py-12 sm:py-16">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-3 text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -108,7 +108,7 @@ const VerifyEmail = () => {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div className="flex justify-center gap-2" onPaste={handlePaste}>
+            <div className="flex flex-wrap justify-center gap-2" onPaste={handlePaste}>
               {code.map((digit, index) => (
                 <Input
                   key={index}
@@ -119,7 +119,7 @@ const VerifyEmail = () => {
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-12 text-center text-lg font-semibold"
+                  className="h-12 w-12 text-center text-lg font-semibold sm:h-14 sm:w-14"
                   autoFocus={index === 0}
                 />
               ))}

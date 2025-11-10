@@ -31,7 +31,7 @@ export const AppLayout = () => {
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="hidden md:flex w-64 flex-col border-r bg-card/50 sticky top-16 h-[calc(100vh-4rem)]">
+        <aside className="hidden lg:flex w-64 flex-col border-r bg-card/50 sticky top-16 h-[calc(100vh-4rem)]">
           <div className="flex-1 overflow-y-auto py-6">
             <nav className="space-y-1 px-3">
               {navigation.map((item) => {
@@ -66,35 +66,12 @@ export const AppLayout = () => {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto px-4 pb-24 pt-8 md:pb-8">
+          <div className="container mx-auto px-4 pb-28 pt-8 lg:pb-8">
             <Outlet />
           </div>
         </main>
       </div>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card/95 backdrop-blur-sm">
-        <div className="flex justify-around py-2">
-          {navigation.slice(0, 4).map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium transition-colors",
-                  isActive(item.href)
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
 };

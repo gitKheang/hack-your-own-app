@@ -59,7 +59,7 @@ const Login = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+      <div className="container mx-auto flex items-center justify-center px-4 py-12 sm:py-16">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-3 text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -114,9 +114,9 @@ const Login = () => {
                   control={form.control}
                   name="rememberMe"
                   render={({ field }) => (
-                    <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormItem className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                       <FormControl>
-                        <Checkbox 
+                        <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />

@@ -7,7 +7,6 @@ import VerifyEmail from "@/pages/auth/VerifyEmail";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import Dashboard from "@/pages/app/Dashboard";
 import DomainsList from "@/pages/app/domains/DomainsList";
-import DomainDetail from "@/pages/app/domains/DomainDetail";
 import ScansList from "@/pages/app/scans/ScansList";
 import NewScan from "@/pages/app/scans/NewScan";
 import ScanDetail from "@/pages/app/scans/ScanDetail";
@@ -49,7 +48,6 @@ export const appRouter = createBrowserRouter([
       { path: "dashboard", element: <Dashboard /> },
       { path: "domains", element: <DomainsList /> },
       { path: "domains/new", element: <Navigate to="/app/domains?modal=add" replace /> },
-      { path: "domains/:domainId", element: <DomainDetail /> },
       { path: "scans", element: <ScansList /> },
       { path: "scans/new", element: <NewScan /> },
       { path: "scans/:taskId", element: <ScanDetail /> },

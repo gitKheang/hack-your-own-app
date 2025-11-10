@@ -38,6 +38,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import type { TaskStatus } from "@/types";
 
 type StatusFilter = "all" | TaskStatus;
@@ -136,6 +139,53 @@ const ScansList = () => {
   const runningScans = filteredScans.filter((scan) => scan.target_status === "RUNNING").length;
   const completedScans = filteredScans.filter((scan) => scan.target_status === "COMPLETED").length;
 
+  const summaryCards = [
+    {
+      key: "total",
+      title: "Total scans",
+      icon: Activity,
+      value: totalScans,
+      description: hasFiltersApplied ? "Matching current filters" : "Across all domains",
+    },
+    {
+      key: "running",
+      title: "Running",
+      icon: Clock,
+      value: runningScans,
+      description: hasFiltersApplied ? "Running scans that match" : "Currently in progress",
+    },
+    {
+      key: "completed",
+      title: "Completed",
+      icon: CheckCircle2,
+      value: completedScans,
+      description: hasFiltersApplied ? "Completed scans that match" : "Ready for review",
+    },
+  ];
+
+  const renderSummaryCards = (cardClassName?: string) =>
+    summaryCards.map((card) => {
+      const Icon = card.icon;
+      return (
+        <Card key={card.key} className={cn("w-full shrink-0 snap-center", cardClassName)}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+            <Icon className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{card.value.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">{card.description}</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      );
+    });
+
   const handleConfirmRemove = () => {
     if (!scanToRemove) {
       return;
@@ -205,8 +255,8 @@ const ScansList = () => {
       </Card>
     );
   } else {
-    scanListContent = filteredScans.map((scan) => (
-      <Card key={scan.id} className="transition-shadow hover:shadow-md">
+    const renderDesktopCard = (scan: ScanSummary) => (
+      <Card key={`desktop-${scan.id}`} className="transition-shadow hover:shadow-md">
         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="space-y-3">
             <CardTitle className="text-xl">{scan.domainName}</CardTitle>
@@ -233,17 +283,17 @@ const ScansList = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground">
             <span>
               Started {new Date(scan.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
             </span>
             {scan.lastRun && <span>Last run {new Date(scan.lastRun).toLocaleString()}</span>}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" asChild>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" asChild className="w-full sm:w-auto">
               <Link to={`/app/scans/${scan.id}`}>Scan results</Link>
             </Button>
-            <Button asChild>
+            <Button asChild className="w-full sm:w-auto">
               <Link
                 to={`/app/scans/new?domain=${encodeURIComponent(scan.domain_id)}&domainName=${encodeURIComponent(scan.domainName)}`}
               >
@@ -253,65 +303,127 @@ const ScansList = () => {
           </div>
         </CardContent>
       </Card>
-    ));
+    );
+
+    const renderMobileAccordionItem = (scan: ScanSummary) => (
+      <AccordionItem key={scan.id} value={scan.id} className="border-b last:border-none">
+        <AccordionTrigger className="px-4 text-left">
+          <div className="flex w-full items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-foreground">{scan.domainName}</span>
+              <span className="text-xs font-mono text-muted-foreground">{scan.target_url}</span>
+            </div>
+            <StatusBadge status={scan.target_status} />
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4">
+          <div className="space-y-4 pb-2 text-sm">
+            <div className="space-y-1 text-muted-foreground">
+              <p>
+                Started {new Date(scan.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+              </p>
+              {scan.lastRun ? <p>Last run {new Date(scan.lastRun).toLocaleString()}</p> : null}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" className="w-full" asChild>
+                <Link to={`/app/scans/${scan.id}`}>Scan results</Link>
+              </Button>
+              <Button className="w-full" asChild>
+                <Link
+                  to={`/app/scans/new?domain=${encodeURIComponent(scan.domain_id)}&domainName=${encodeURIComponent(scan.domainName)}`}
+                >
+                  Run again
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="justify-start text-destructive hover:text-destructive"
+                onClick={() => setScanToRemove(scan)}
+                disabled={isRemovingScan && scanToRemove?.id === scan.id}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete scan
+              </Button>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    );
+
+    scanListContent = (
+      <>
+        <div className="md:hidden">
+          <Accordion type="single" collapsible className="divide-y rounded-xl border bg-card/70">
+            {filteredScans.map((scan) => renderMobileAccordionItem(scan))}
+          </Accordion>
+        </div>
+        <div className="hidden space-y-4 md:block">
+          {filteredScans.map((scan) => renderDesktopCard(scan))}
+        </div>
+      </>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Scans</h1>
-          <p className="mt-1 text-muted-foreground">
-            Review recent scan activity and launch new assessments.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link to="/app/scans/new">
-              <Activity className="mr-2 h-4 w-4" />
-              New Active Scan
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to="/scan">
-              <Shield className="mr-2 h-4 w-4" />
-              Quick Passive Scan
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <Card className="border border-border/70 bg-card/80 shadow-sm">
+        <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2 text-left">
+              <h1 className="text-3xl font-bold tracking-tight">Scans</h1>
+              <p className="text-sm text-muted-foreground sm:text-base">
+                Review recent scan activity and launch new assessments.
+              </p>
+            </div>
+            <div className="grid w-full gap-2 sm:max-w-md md:w-auto md:grid-cols-2">
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/app/scans/new">
+                  <Activity className="mr-2 h-4 w-4" />
+                  New Active Scan
+                </Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link to="/scan">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Quick Passive Scan
+                </Link>
+              </Button>
+            </div>
+          </div>
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search by domain, URL, or summary"
-            className="pl-9"
-            aria-label="Search scans"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {hasFiltersApplied && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleResetFilters}>
-              Clear
-            </Button>
-          )}
-        </div>
-      </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] md:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by domain, URL, or summary"
+                className="pl-9"
+                aria-label="Search scans"
+              />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                <SelectTrigger className="w-full sm:w-auto">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {hasFiltersApplied && (
+                <Button type="button" variant="ghost" size="sm" onClick={handleResetFilters}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {totalAvailableScans > 0 && (
         <p className="text-sm text-muted-foreground">
@@ -329,63 +441,18 @@ const ScansList = () => {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total scans</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-7 w-12" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">{totalScans}</div>
-                <p className="text-xs text-muted-foreground">
-                  {hasFiltersApplied ? "Matching current filters" : "Across all domains"}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Running</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-7 w-12" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">{runningScans}</div>
-                <p className="text-xs text-muted-foreground">
-                  {hasFiltersApplied ? "Running scans that match" : "Currently in progress"}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-7 w-14" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">{completedScans}</div>
-                <p className="text-xs text-muted-foreground">
-                  {hasFiltersApplied ? "Completed scans that match" : "Ready for review"}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <div className="-mx-4 sm:hidden">
+          <ScrollArea className="w-full" type="auto">
+            <div className="flex gap-3 px-4 pb-3">
+              {renderSummaryCards("min-w-[220px]")}
+            </div>
+            <ScrollBar orientation="horizontal" className="h-1.5" />
+          </ScrollArea>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {renderSummaryCards()}
+        </div>
       </div>
 
       <div className="grid gap-4">{scanListContent}</div>

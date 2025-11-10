@@ -195,9 +195,9 @@ const NewScan = () => {
 
       {defaultsQuery.isError ? (
         <Alert variant="destructive">
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             Unable to load scan defaults. We&apos;ll fall back to safe presets.
-            <Button size="sm" variant="outline" onClick={() => defaultsQuery.refetch()}>
+            <Button size="sm" variant="outline" onClick={() => defaultsQuery.refetch()} className="w-full sm:w-auto">
               Retry
             </Button>
           </AlertDescription>
@@ -310,7 +310,7 @@ const NewScan = () => {
                 control={form.control}
                 name="autoOpenReport"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <FormItem className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <FormLabel className="text-base">Auto-open report when scans finish</FormLabel>
                       <FormDescription className="text-xs">
@@ -325,7 +325,7 @@ const NewScan = () => {
               />
 
               <div className="rounded-lg border border-dashed p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <FormLabel>Safety mode</FormLabel>
                   <Badge variant="secondary">Non-destructive</Badge>
                 </div>
@@ -338,7 +338,7 @@ const NewScan = () => {
                 control={form.control}
                 name="authorization"
                 render={({ field }) => (
-                  <FormItem className="flex items-start space-x-3 space-y-0 rounded-lg border bg-primary/5 p-4">
+                  <FormItem className="flex flex-col gap-3 rounded-lg border bg-primary/5 p-4 sm:flex-row sm:items-start sm:gap-4">
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
@@ -353,8 +353,8 @@ const NewScan = () => {
                 )}
               />
 
-              <div className="flex gap-4">
-                <Button type="submit" disabled={createScanMutation.isPending} className="flex-1">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button type="submit" disabled={createScanMutation.isPending} className="w-full sm:flex-1">
                   {createScanMutation.isPending ? (
                     <>
                       <Activity className="mr-2 h-4 w-4 animate-spin" />
@@ -366,7 +366,14 @@ const NewScan = () => {
                     </>
                   )}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => navigate("/app/scans")}>Cancel</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate("/app/scans")}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
               </div>
             </form>
           </Form>

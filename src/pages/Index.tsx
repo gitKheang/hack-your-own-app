@@ -160,9 +160,9 @@ const Index = () => {
             <Card>
               <CardHeader>
                 <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>AI Recommendations</CardTitle>
+                <CardTitle>AI Suggestions</CardTitle>
                 <CardDescription>
-                  Receive AI-powered remediation guidance and sample fixes
+                  Get AI-powered remediation suggestions and sample fixes
                 </CardDescription>
               </CardHeader>
             </Card>

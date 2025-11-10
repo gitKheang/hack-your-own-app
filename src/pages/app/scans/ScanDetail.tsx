@@ -217,16 +217,16 @@ const ScanDetail = () => {
 
       {isCompleted && (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">
+          <TabsList className="flex flex-wrap gap-2">
+            <TabsTrigger value="overview" className="flex-1 min-w-[140px] sm:flex-none">
               <Lightbulb className="h-4 w-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="findings">
+            <TabsTrigger value="findings" className="flex-1 min-w-[140px] sm:flex-none">
               <AlertTriangle className="h-4 w-4 mr-2" />
               Findings ({results.length})
             </TabsTrigger>
-            <TabsTrigger value="timeline">
+            <TabsTrigger value="timeline" className="flex-1 min-w-[140px] sm:flex-none">
               <Clock className="h-4 w-4 mr-2" />
               Timeline
             </TabsTrigger>

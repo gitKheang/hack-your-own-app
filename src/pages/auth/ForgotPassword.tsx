@@ -47,7 +47,7 @@ const ForgotPassword = () => {
       <div className="min-h-screen bg-background">
         <Header />
         
-        <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+        <div className="container mx-auto flex items-center justify-center px-4 py-12 sm:py-16">
           <Card className="w-full max-w-md text-center">
             <CardHeader className="space-y-3">
               <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -81,7 +81,7 @@ const ForgotPassword = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="container mx-auto px-4 py-16 flex items-center justify-center">
+      <div className="container mx-auto flex items-center justify-center px-4 py-12 sm:py-16">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-3 text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">

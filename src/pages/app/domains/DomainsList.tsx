@@ -1,21 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
-import {
-  Plus,
-  CheckCircle2,
-  XCircle,
-  Activity,
-  Settings as SettingsIcon,
-  Trash2,
-  RefreshCcw,
-  Loader2,
-} from "lucide-react";
+import { Plus, CheckCircle2, XCircle, Activity, Trash2, RefreshCcw, Loader2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { listDomains, verifyDomain, removeDomain, getDomain, type DomainSummary } from "@/api/domains";
 import { ApiError } from "@/api/client";
@@ -201,6 +196,26 @@ const DomainsList = () => {
   const totalDomains = domains.length;
   const verifiedCount = domains.filter((domain) => domain.verification_status === "verified").length;
   const pendingCount = domains.filter((domain) => domain.verification_status === "pending").length;
+  const summaryCards = [
+    {
+      key: "total",
+      title: "Total Domains",
+      value: totalDomains.toString(),
+      toneClass: "",
+    },
+    {
+      key: "verified",
+      title: "Verified",
+      value: verifiedCount.toString(),
+      toneClass: "text-green-600",
+    },
+    {
+      key: "pending",
+      title: "Pending verification",
+      value: pendingCount.toString(),
+      toneClass: "text-yellow-600",
+    },
+  ] as const;
 
   const resetModalState = useCallback(
     (prefillDomain?: string, initialStep: "domain" | "dns" = "domain") => {
@@ -368,15 +383,15 @@ const DomainsList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Domains</h1>
           <p className="mt-1 text-muted-foreground">
             Manage your verified domains for security testing
           </p>
         </div>
-        <div>
-          <Button type="button" onClick={() => openModal()}>
+        <div className="w-full sm:w-auto">
+          <Button type="button" onClick={() => openModal()} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add new domain
           </Button>
@@ -390,208 +405,360 @@ const DomainsList = () => {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Domains</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingDomains ? (
-              <Skeleton className="h-7 w-12" />
-            ) : (
-              <div className="text-2xl font-bold">{totalDomains}</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Verified</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingDomains ? (
-              <Skeleton className="h-7 w-12" />
-            ) : (
-              <div className="text-2xl font-bold text-green-600">{verifiedCount}</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pending verification</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingDomains ? (
-              <Skeleton className="h-7 w-12" />
-            ) : (
-              <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4">
-        {isLoadingDomains
-          ? Array.from({ length: 3 }).map((_, index) => (
-              <Card className="hover:shadow-md transition-shadow" key={`domain-skeleton-${index}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-6 w-32" />
-                        <Skeleton className="h-5 w-20" />
-                      </div>
-                      <Skeleton className="h-4 w-48" />
-                    </div>
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-4 w-56" />
-                    <Skeleton className="h-8 w-32" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          : domains.map((domain) => {
-              const status = deriveDomainStatus(domain);
-              const isPendingStatus = status === "pending";
-              const isFailedStatus = status === "failed";
-              const isVerifiedStatus = status === "verified";
-              const isRefreshingThisDomain =
-                isRefreshingDomain && refreshingDomainId === domain.id;
-
-              return (
-                <Card key={domain.id} className="transition-shadow hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-xl">{domain.domain_name}</CardTitle>
-                          {isVerifiedStatus ? (
-                            <Badge variant="completed" className="gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Verified
-                            </Badge>
-                          ) : isFailedStatus ? (
-                            <Badge variant="failed" className="gap-1">
-                              <XCircle className="h-3 w-3" />
-                              Verification failed
-                            </Badge>
-                          ) : (
-                            <Badge variant="pending" className="gap-1">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Pending verification
-                            </Badge>
-                          )}
-                        </div>
-                        <CardDescription>
-                          Added {new Date(domain.created_at).toLocaleDateString()}
-                          {isVerifiedStatus && domain.verified_at
-                            ? ` • Verified ${new Date(domain.verified_at).toLocaleDateString()}`
-                            : null}
-                          {isPendingStatus ? " • Verification in progress" : null}
-                          {isFailedStatus ? " • Verification failed" : null}
-                        </CardDescription>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDomainToRemove(domain)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+      <div className="space-y-4">
+        <div className="-mx-4 sm:hidden">
+          <ScrollArea className="w-full" type="auto">
+            <div className="flex gap-4 px-4 pb-3">
+              {summaryCards.map((card) => (
+                <Card key={card.key} className="min-w-[200px]">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
                   </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {isFailedStatus && domain.verification_error && (
-                      <Alert variant="destructive">
-                        <AlertTitle>Verification failed</AlertTitle>
-                        <AlertDescription className="text-sm">
-                          {domain.verification_error}
-                        </AlertDescription>
-                      </Alert>
+                  <CardContent>
+                    {isLoadingDomains ? (
+                      <Skeleton className="h-7 w-12" />
+                    ) : (
+                      <div className={cn("text-2xl font-bold", card.toneClass)}>{card.value}</div>
                     )}
-
-                    {isPendingStatus && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>DNS verification in progress. Check back after the record propagates.</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Activity className="h-4 w-4" />
-                          <span>{domain.scanCount ?? 0} scans</span>
-                        </div>
-                        {domain.lastScan && (
-                          <div>Last scan: {new Date(domain.lastScan).toLocaleDateString()}</div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap justify-end gap-2">
-                        {isVerifiedStatus ? (
-                          <>
-                            <Button variant="outline" size="sm" asChild>
-                              <Link to={`/app/domains/${domain.id}`}>
-                                <SettingsIcon className="mr-2 h-4 w-4" />
-                                Manage
-                              </Link>
-                            </Button>
-                            <Button size="sm" asChild>
-                              <Link
-                                to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
-                              >
-                                <Activity className="mr-2 h-4 w-4" />
-                                New Scan
-                              </Link>
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              type="button"
-                              onClick={() => runRefreshDomain(domain.id)}
-                              disabled={isRefreshingThisDomain}
-                            >
-                              {isRefreshingThisDomain ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Refreshing…
-                                </>
-                              ) : (
-                                <>
-                                  <RefreshCcw className="mr-2 h-4 w-4" />
-                                  Refresh status
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              type="button"
-                              variant={isFailedStatus ? "destructive" : "default"}
-                              onClick={() => openModal(domain.domain_name)}
-                            >
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              {isFailedStatus ? "Fix verification" : "Review instructions"}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
-              );
-            })}
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" className="h-1.5" />
+          </ScrollArea>
+        </div>
+
+        <div className="hidden gap-4 sm:grid sm:grid-cols-2 md:grid-cols-3">
+          {summaryCards.map((card) => (
+            <Card key={card.key}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingDomains ? (
+                  <Skeleton className="h-7 w-12" />
+                ) : (
+                  <div className={cn("text-2xl font-bold", card.toneClass)}>{card.value}</div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
+
+      {isLoadingDomains ? (
+        <div className="grid gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card className="transition-shadow hover:shadow-md" key={`domain-skeleton-${index}`}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-6 w-32" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-56" />
+                  <Skeleton className="h-8 w-32" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <>
+          {domains.length > 0 && (
+            <>
+              <div className="md:hidden">
+                <Accordion type="single" collapsible className="divide-y rounded-xl border bg-card/70">
+                  {domains.map((domain) => {
+                    const status = deriveDomainStatus(domain);
+                    const isPendingStatus = status === "pending";
+                    const isFailedStatus = status === "failed";
+                    const isVerifiedStatus = status === "verified";
+                    const isRefreshingThisDomain =
+                      isRefreshingDomain && refreshingDomainId === domain.id;
+
+                    let statusBadge: ReactNode = null;
+                    if (isVerifiedStatus) {
+                      statusBadge = (
+                        <Badge variant="completed" className="gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Verified
+                        </Badge>
+                      );
+                    } else if (isFailedStatus) {
+                      statusBadge = (
+                        <Badge variant="failed" className="gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Verification failed
+                        </Badge>
+                      );
+                    } else {
+                      statusBadge = (
+                        <Badge variant="pending" className="gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Pending verification
+                        </Badge>
+                      );
+                    }
+
+                    return (
+                      <AccordionItem key={domain.id} value={domain.id} className="border-b last:border-none">
+                        <AccordionTrigger className="px-4 text-left text-sm font-medium max-[430px]:px-3">
+                          <div className="flex w-full items-start justify-between gap-3 max-[430px]:gap-2">
+                            <span className="text-sm font-semibold text-foreground max-[430px]:text-xs">
+                              {domain.domain_name}
+                            </span>
+                            {statusBadge}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 max-[430px]:px-3">
+                          <div className="space-y-4 pb-2">
+                            <CardDescription className="max-[430px]:text-xs">
+                              Added {new Date(domain.created_at).toLocaleDateString()}
+                              {isVerifiedStatus && domain.verified_at
+                                ? ` • Verified ${new Date(domain.verified_at).toLocaleDateString()}`
+                                : null}
+                              {isPendingStatus ? " • Verification in progress" : null}
+                              {isFailedStatus ? " • Verification failed" : null}
+                            </CardDescription>
+
+                            {isFailedStatus && domain.verification_error && (
+                              <Alert variant="destructive">
+                                <AlertTitle>Verification failed</AlertTitle>
+                                <AlertDescription className="text-sm">
+                                  {domain.verification_error}
+                                </AlertDescription>
+                              </Alert>
+                            )}
+
+                            {isPendingStatus && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground max-[430px]:text-xs">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>DNS verification in progress. Check back after the record propagates.</span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-col gap-3">
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground max-[430px]:text-xs">
+                                <div className="flex items-center gap-1">
+                                  <Activity className="h-4 w-4" />
+                                  <span>{domain.scanCount ?? 0} scans</span>
+                                </div>
+                                {domain.lastScan && (
+                                  <div>Last scan: {new Date(domain.lastScan).toLocaleDateString()}</div>
+                                )}
+                              </div>
+
+                              <div className="flex flex-col gap-2">
+                                {isVerifiedStatus ? (
+                                    <Button size="sm" asChild className="w-full max-[430px]:text-xs">
+                                      <Link
+                                        to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                                      >
+                                      <Activity className="mr-2 h-4 w-4" />
+                                      New Scan
+                                    </Link>
+                                  </Button>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      type="button"
+                                      onClick={() => runRefreshDomain(domain.id)}
+                                      disabled={isRefreshingThisDomain}
+                                      className="w-full max-[430px]:text-xs"
+                                    >
+                                      {isRefreshingThisDomain ? (
+                                        <>
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          Refreshing…
+                                        </>
+                                      ) : (
+                                        <>
+                                          <RefreshCcw className="mr-2 h-4 w-4" />
+                                          Refresh status
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      type="button"
+                                      variant={isFailedStatus ? "destructive" : "default"}
+                                      onClick={() => openModal(domain.domain_name)}
+                                      className="w-full max-[430px]:text-xs"
+                                    >
+                                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                                      {isFailedStatus ? "Fix verification" : "View setup steps"}
+                                    </Button>
+                                  </>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="justify-start text-destructive hover:text-destructive max-[430px]:text-xs"
+                                  onClick={() => setDomainToRemove(domain)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Remove domain
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
+
+              <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
+                {domains.map((domain) => {
+                  const status = deriveDomainStatus(domain);
+                  const isPendingStatus = status === "pending";
+                  const isFailedStatus = status === "failed";
+                  const isVerifiedStatus = status === "verified";
+                  const isRefreshingThisDomain =
+                    isRefreshingDomain && refreshingDomainId === domain.id;
+
+                  return (
+                    <Card key={domain.id} className="transition-shadow hover:shadow-md">
+                      <CardHeader>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-xl">{domain.domain_name}</CardTitle>
+                              {isVerifiedStatus ? (
+                                <Badge variant="completed" className="gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Verified
+                                </Badge>
+                              ) : isFailedStatus ? (
+                                <Badge variant="failed" className="gap-1">
+                                  <XCircle className="h-3 w-3" />
+                                  Verification failed
+                                </Badge>
+                              ) : (
+                                <Badge variant="pending" className="gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Pending verification
+                                </Badge>
+                              )}
+                            </div>
+                            <CardDescription>
+                              Added {new Date(domain.created_at).toLocaleDateString()}
+                              {isVerifiedStatus && domain.verified_at
+                                ? ` • Verified ${new Date(domain.verified_at).toLocaleDateString()}`
+                                : null}
+                              {isPendingStatus ? " • Verification in progress" : null}
+                              {isFailedStatus ? " • Verification failed" : null}
+                            </CardDescription>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="self-start text-destructive hover:text-destructive"
+                            onClick={() => setDomainToRemove(domain)}
+                            aria-label={`Remove ${domain.domain_name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="space-y-4">
+                        {isFailedStatus && domain.verification_error && (
+                          <Alert variant="destructive">
+                            <AlertTitle>Verification failed</AlertTitle>
+                            <AlertDescription className="text-sm">
+                              {domain.verification_error}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {isPendingStatus && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>DNS verification in progress. Check back after the record propagates.</span>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Activity className="h-4 w-4" />
+                              <span>{domain.scanCount ?? 0} scans</span>
+                            </div>
+                            {domain.lastScan && (
+                              <div>Last scan: {new Date(domain.lastScan).toLocaleDateString()}</div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                            {isVerifiedStatus ? (
+                              <Button size="sm" asChild className="w-full sm:w-auto">
+                                <Link
+                                  to={`/app/scans/new?domain=${encodeURIComponent(domain.id)}&domainName=${encodeURIComponent(domain.domain_name)}`}
+                                >
+                                  <Activity className="mr-2 h-4 w-4" />
+                                  New Scan
+                                </Link>
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  type="button"
+                                  onClick={() => runRefreshDomain(domain.id)}
+                                  disabled={isRefreshingThisDomain}
+                                  className="w-full sm:w-auto"
+                                >
+                                  {isRefreshingThisDomain ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Refreshing…
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCcw className="mr-2 h-4 w-4" />
+                                      Refresh status
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  type="button"
+                                  variant={isFailedStatus ? "destructive" : "default"}
+                                  onClick={() => openModal(domain.domain_name)}
+                                  className="w-full sm:w-auto"
+                                >
+                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  {isFailedStatus ? "Fix verification" : "View setup steps"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
 
       {!isLoadingDomains && domains.length === 0 && (
         <Card>

@@ -150,7 +150,7 @@ const GeneralSettingsCard = () => {
                 control={form.control}
                 name="openInNewTab"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <FormItem className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <FormLabel className="text-base">Open scan results in a new tab</FormLabel>
                       <FormDescription>Keep the dashboard visible while reviewing findings.</FormDescription>
@@ -166,7 +166,7 @@ const GeneralSettingsCard = () => {
                 control={form.control}
                 name="autosave"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                  <FormItem className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <FormLabel className="text-base">Auto-save forms</FormLabel>
                       <FormDescription>Persist edits as you go.</FormDescription>

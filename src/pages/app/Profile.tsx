@@ -223,9 +223,9 @@ const Profile = () => {
       {profileQuery.isError && !profile ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load profile</AlertTitle>
-          <AlertDescription className="flex items-center gap-3">
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center">
             Something went wrong while fetching your information.
-            <Button variant="outline" size="sm" onClick={() => profileQuery.refetch()}>
+            <Button variant="outline" size="sm" onClick={() => profileQuery.refetch()} className="w-full sm:w-auto">
               Retry
             </Button>
           </AlertDescription>
@@ -242,9 +242,9 @@ const Profile = () => {
               <CardDescription>Keep your name and locale information up to date.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-6 flex items-center gap-3 text-sm text-muted-foreground">
-                <span>{profile.email}</span>
-                <Badge variant={profile.email_verified ? "default" : "secondary"}>
+              <div className="mb-6 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center">
+                <span className="break-all">{profile.email}</span>
+                <Badge variant={profile.email_verified ? "default" : "secondary"} className="w-fit">
                   {profile.email_verified ? "Verified" : "Verification pending"}
                 </Badge>
               </div>
@@ -338,7 +338,7 @@ const Profile = () => {
                     />
                   </div>
 
-                  <CardFooter className="flex justify-end gap-3 p-0">
+                  <CardFooter className="flex flex-col gap-3 p-0 sm:flex-row sm:justify-end">
                     <Button
                       type="button"
                       variant="outline"
@@ -351,12 +351,14 @@ const Profile = () => {
                         });
                       }}
                       disabled={!form.formState.isDirty || updateProfileMutation.isPending}
+                      className="w-full sm:w-auto"
                     >
                       Reset
                     </Button>
                     <Button
                       type="submit"
                       disabled={!form.formState.isDirty || updateProfileMutation.isPending}
+                      className="w-full sm:w-auto"
                     >
                       {updateProfileMutation.isPending ? "Saving" : "Save changes"}
                     </Button>
@@ -421,8 +423,8 @@ const Profile = () => {
                     )}
                   />
 
-                  <CardFooter className="flex justify-end gap-3 p-0">
-                    <Button type="submit" disabled={passwordMutation.isPending}>
+                  <CardFooter className="flex flex-col gap-3 p-0 sm:flex-row sm:justify-end">
+                    <Button type="submit" disabled={passwordMutation.isPending} className="w-full sm:w-auto">
                       {passwordMutation.isPending ? "Updating" : "Update password"}
                     </Button>
                   </CardFooter>

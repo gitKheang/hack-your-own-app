@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Header } from "@/components/layout/Header";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -31,6 +31,7 @@ const passiveSchema = z.object({
 type PassiveFormValues = z.infer<typeof passiveSchema>;
 
 const PassiveScan = () => {
+  const [searchParams] = useSearchParams();
   const form = useForm<PassiveFormValues>({
     resolver: zodResolver(passiveSchema),
     defaultValues: {
@@ -41,9 +42,17 @@ const PassiveScan = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanResult, setScanResult] = useState<PassiveScanResponse | null>(null);
   const [progress, setProgress] = useState(0);
+  const [hasSession, setHasSession] = useState(false);
   const redirectProgress = Math.min((progress / 60) * 100, 100);
   const headerProgress =
     progress <= 60 ? 0 : Math.min(((progress - 60) / 40) * 100, 100);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setHasSession(Boolean(localStorage.getItem("hyow_session")));
+  }, []);
 
   useEffect(() => {
     if (!isSubmitting) {
@@ -81,6 +90,10 @@ const PassiveScan = () => {
       setIsSubmitting(false);
     }
   };
+
+  const origin = searchParams.get("origin");
+  const closeDestination =
+    origin === "landing" || !hasSession ? "/" : "/app/dashboard";
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,12 +150,12 @@ const PassiveScan = () => {
                   </AlertDescription>
                 </Alert>
 
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-[3]" disabled={isSubmitting}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Button type="submit" className="w-full sm:flex-[3]" disabled={isSubmitting}>
                     {isSubmitting ? "Running scan…" : scanResult ? "Run another passive scan" : "Run passive scan"}
                   </Button>
-                  <Button asChild variant="outline" className="flex-[1]" disabled={isSubmitting}>
-                    <Link to="/app/dashboard">Close</Link>
+                  <Button asChild variant="outline" className="w-full sm:flex-[1]" disabled={isSubmitting}>
+                    <Link to={closeDestination}>Close</Link>
                   </Button>
                 </div>
               </form>
